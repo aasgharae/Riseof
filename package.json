@@ -1,0 +1,1 @@
+{"name":"rise-offline-prototype","private":true,"type":"module","scripts":{"test":"node --test"}}
