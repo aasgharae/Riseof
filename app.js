@@ -1,39 +1,38 @@
-import{TROOPS,BUILD_DEFS,BATCH_OPTIONS,EXTRA_NAMES,FACTIONS,MAX_LEVEL,buildingProd,upgradeCost,upgradeTime,speedCost,expeditionCap,maxMarches,marchSpeed,factionAt,tribeLevelAt,WORLD_W,WORLD_H,CASTLE_COUNT}from'./config.js';
+import{TROOPS,BUILD_DEFS,BATCH_OPTIONS,EXTRA_NAMES,FACTIONS,MAX_LEVEL,CLASS_INFO,TROOP_CLASS,COUNTER,NPC,hospitalCap,buildingProd,upgradeCost,upgradeTime,speedCost,expeditionCap,maxMarches,marchSpeed,factionAt,tribeLevelAt,WORLD_W,WORLD_H,CASTLE_COUNT}from'./config.js';
 import{SAVE_KEY,freshState,load,save,storageCap,addLog}from'./state.js';
-import{armyPower,armyCount,resolveAttack,genGarrison}from'./combat.js';
+import{armyPower,armyCount,battle,genGarrison,troopMultVs,bestCounters}from'./combat.js';
+import{hospitalLevel,woundedCount,healingCount,addWounded,healCost,healTime}from'./hospital.js';
+import{buildTribe,scaleTribe,queueRespawn,processRespawns,npcGrow,startWar,resolveWar,maybeRaid,resolveRaid}from'./npc.js';
+import{genSites,siteReady,lootSite,SITE_KINDS}from'./sites.js';
+import{ensureQuests,questsHTML,claimQuest,claimAch,countClaimable,bump}from'./quests.js';
 import{Renderer}from'./js/renderer.js';
 import{placeCastles,findHome}from'./js/worldgen.js';
 import{makeRng}from'./js/noise.js';
 import{rankBoard,factionBoard,npcKillsInit,npcTick}from'./leaderboard.js';
-let S=load();const $=id=>document.getElementById(id);
+let S=load();window.__S=S;const $=id=>document.getElementById(id);
 const cv=$('cv'),R=new Renderer(cv);R.setState(S);
 
-// ---- world population: 300 castles, 5 factions, levels by distance ----
+// ---- جهان: ۶۰۰ قلعه، ۵ قبیله، گنج و غار در مرکز ----
 (function populate(){
   const terr=R.terr;
   const home=findHome(terr);
-  const spots=placeCastles(terr,CASTLE_COUNT+12,555).filter(p=>Math.hypot(p.x-home.x,p.y-home.y)>11).slice(0,CASTLE_COUNT);
   if(!S.tribes.length){
     S.homePos=home;
+    const spots=placeCastles(terr,CASTLE_COUNT+12,555).filter(p=>Math.hypot(p.x-home.x,p.y-home.y)>11).slice(0,CASTLE_COUNT);
     const rng=makeRng(20240907);
     const maxDist=Math.hypot(WORLD_W,WORLD_H)/2;
     S.tribes=spots.map((sp,i)=>{
       const dRatio=Math.hypot(sp.x-home.x,sp.y-home.y)/maxDist;
       const level=Math.max(1,Math.min(30,tribeLevelAt(dRatio)+Math.floor(rng()*5)-2));
-      const f=factionAt(sp.x,sp.y);
-      const garrison=genGarrison(level,rng);
-      const wall=Math.floor(level/4);
-      const power=Math.floor(armyPower(garrison)*(1+f.idx*0.07));
-      const kills=npcKillsInit(garrison,rng);
-      return{id:'t'+i,
-        name:'قلعه '+EXTRA_NAMES[i%EXTRA_NAMES.length]+' '+(Math.floor(i/EXTRA_NAMES.length)+1),
-        faction:f.id,factionName:f.icon+' '+f.name,color:f.color,
-        x:sp.x,y:sp.y,level,wall,garrison,power,kills,
-        loot:{food:Math.floor(3000*level*(0.8+rng()*0.5)),wood:Math.floor(2500*level*(0.8+rng()*0.5)),
-          stone:Math.floor(2000*level*(0.8+rng()*0.5)),iron:Math.floor(1200*level*(0.8+rng()*0.5)),
-          gold:Math.floor(35*level*(0.8+rng()*0.6))}};});
+      return buildTribe('t'+i,'قلعه '+EXTRA_NAMES[i%EXTRA_NAMES.length]+' '+(Math.floor(i/EXTRA_NAMES.length)+1),sp.x,sp.y,level,rng,NPC.buff);});
+    S.buffed=true;
     addLog(S,'info','🌍 جهان جدید ساخته شد: '+S.tribes.length+' قلعه در '+FACTIONS.length+' قلمرو');
   }
+  if(!S.buffed){for(const t of S.tribes){scaleTribe(t,NPC.buff);t.base=t.power;}S.buffed=true;}
+  for(const t of S.tribes)if(!t.base)t.base=t.power;
+  if(!S.sites||!S.sites.length){S.sites=genSites(terr,S.tribes,S.homePos,makeRng(777),30);
+    addLog(S,'info','💎 '+S.sites.length+' گنج و غار در قلب نقشه کشف شد');}
+  ensureQuests(S);
   R.setState(S);save(S);
 })();
 R.setView('world'); // ورود: دوربین روی قلعه خودت، زوم نزدیک
@@ -43,7 +42,13 @@ const toast=m=>{const t=$('toast');if(!t)return;t.innerHTML=m;clearTimeout(t._h)
 function fmt(n){n=Math.floor(n);if(n>=1e12)return(n/1e12).toFixed(1)+'T';if(n>=1e9)return(n/1e9).toFixed(1)+'B';if(n>=1e6)return(n/1e6).toFixed(1)+'M';if(n>=1e3)return(n/1e3).toFixed(1)+'K';return n;}
 function dist(t){return Math.hypot(t.x-S.homePos.x,t.y-S.homePos.y);}
 function eta(t){return Math.ceil(dist(t)/marchSpeed());}
-function updTop(){const cap=storageCap(S);for(const k in S.resources)S.resources[k]=Math.min(S.resources[k],cap);
+function updBadges(){
+  const qb=document.querySelector('#dock [data-act=quests] .badge'),ab=document.querySelector('#dock [data-act=attack] .badge'),al=$('alertBar');
+  const n=countClaimable(S);if(qb){qb.hidden=!n;qb.textContent=n;}
+  const inc=S.incoming||[];if(ab){ab.hidden=!inc.length;ab.textContent=inc.length;}
+  if(al){if(inc.length){const r=inc.reduce((a,b)=>a.left<b.left?a:b);al.hidden=false;
+    al.textContent='⚠️ حمله '+r.name+' — '+Math.ceil(r.left)+'ث تا رسیدن • ⚔'+fmt(r.power)+' در برابر دفاع شما ⚔'+fmt(armyPower(S.troops));}else al.hidden=true;}}
+function updTop(){updBadges();const cap=storageCap(S);for(const k in S.resources)S.resources[k]=Math.min(S.resources[k],cap);
 if($('res-food')){$('res-food').textContent='🌾 '+fmt(S.resources.food);$('res-wood').textContent='🪵 '+fmt(S.resources.wood);$('res-stone').textContent='🪨 '+fmt(S.resources.stone);$('res-iron').textContent='⛓️ '+fmt(S.resources.iron);$('res-gold').textContent='🪙 '+fmt(S.resources.gold);
 const keepLv=S.buildings.find(b=>b.type==='keep')?.level||1;
 $('dayLabel').textContent='🏰Lv'+keepLv+' • ⚔'+fmt(armyPower(S.troops))+' • 👥'+fmt(armyCount(S.troops));}}
@@ -61,14 +66,14 @@ window.upg=(id)=>{const b=S.buildings.find(x=>x.id===id);if(!b)return;
 window.speedUp=(id)=>{const u=S.upgrades.find(x=>x.id===id);if(!u)return;
   const cost=speedCost(u.left);if(S.resources.gold<cost)return toast('🪙 سکه کافی نیست ('+cost+' لازم)');
   S.resources.gold-=cost;S.upgrades=S.upgrades.filter(x=>x.id!==id);
-  const b=S.buildings.find(x=>x.id===id);if(b)b.level++;
+  const b=S.buildings.find(x=>x.id===id);if(b)b.level++;bump(S,'upgraded');
   save(S);renderSheet();updTop();toast('⚡ ارتقا فوری تکمیل شد! (-'+cost+'🪙)');};
 window.speedAll=()=>{if(!S.upgrades.length)return toast('ارتقایی در جریان نیست');
   let total=0;for(const u of S.upgrades)total+=speedCost(u.left);
   if(S.resources.gold<total)return toast('🪙 سکه کافی نیست ('+total+' لازم)');
   S.resources.gold-=total;
   for(const u of S.upgrades){const b=S.buildings.find(x=>x.id===u.id);if(b)b.level++;}
-  S.upgrades=[];save(S);renderSheet();updTop();toast('⚡ همه ارتقاها فوری شد (-'+total+'🪙)');};
+  bump(S,'upgraded',S.upgrades.length);S.upgrades=[];save(S);renderSheet();updTop();toast('⚡ همه ارتقاها فوری شد (-'+total+'🪙)');};
 
 // ================= TRAINING =================
 window.train=(barId,tid,count)=>{const T=TROOPS[tid];if(!T)return;
@@ -84,7 +89,7 @@ window.instantTrain=(barId,tid,count)=>{const T=TROOPS[tid];if(!T)return;
   const lvl=(S.buildings.find(b=>b.id===barId)?.level||1);
   const t=T.time*Math.pow(count,0.7)/(1+lvl*0.22);
   const gc=speedCost(t);if(S.resources.gold<gc)return toast('🪙 سکه کافی نیست ('+gc+' لازم)');
-  S.resources.gold-=gc;pay(cost);S.troops[tid]=(S.troops[tid]||0)+count;
+  S.resources.gold-=gc;pay(cost);S.troops[tid]=(S.troops[tid]||0)+count;bump(S,'trained',count);
   save(S);renderSheet();updTop();toast('⚡ '+count+'× '+T.name+' لحظه‌ای آماده شد (-'+gc+'🪙)');};
 window.cancelQ=(barId,i)=>{const q=S.training[barId]?.[i];if(!q)return;const T=TROOPS[q.tid];
   for(const k in T.cost)S.resources[k]+=Math.floor(T.cost[k]*q.count*0.7);S.training[barId].splice(i,1);save(S);renderSheet();};
@@ -92,20 +97,43 @@ window.finishQ=(barId)=>{const q=S.training[barId];if(!q||!q.length)return;
   let tLeft=0;for(const j of q)tLeft+=j.left;const gc=speedCost(tLeft);
   if(S.resources.gold<gc)return toast('🪙 سکه کافی نیست ('+gc+' لازم)');
   S.resources.gold-=gc;
-  for(const j of q)S.troops[j.tid]=(S.troops[j.tid]||0)+j.count;
+  for(const j of q){S.troops[j.tid]=(S.troops[j.tid]||0)+j.count;bump(S,'trained',j.count);}
   S.training[barId]=[];save(S);renderSheet();updTop();toast('⚡ کل صف فوری تحویل شد (-'+gc+'🪙)');};
+
+// ================= HOSPITAL =================
+window.heal=(tid,count)=>{const n=Math.min(count,S.wounded[tid]||0);if(n<=0)return;
+  const cost=healCost(tid,n);if(!canPay(cost))return toast('منابع کافی نیست');
+  pay(cost);S.wounded[tid]-=n;if(S.wounded[tid]<=0)delete S.wounded[tid];
+  const total=healTime(tid,n,hospitalLevel(S));S.healing.push({tid,count:n,left:total,total});
+  save(S);renderSheet();updTop();toast('🏥 درمان '+n+'× '+TROOPS[tid].name+' شروع شد');};
+window.healAll=()=>{const tids=Object.keys(S.wounded);if(!tids.length)return;
+  const tot={};for(const t of tids){const c=healCost(t,S.wounded[t]);for(const k in c)tot[k]=(tot[k]||0)+c[k];}
+  if(!canPay(tot))return toast('منابع کافی نیست');pay(tot);
+  for(const t of tids){const n=S.wounded[t];S.healing.push({tid:t,count:n,left:healTime(t,n,hospitalLevel(S)),total:healTime(t,n,hospitalLevel(S))});}
+  S.wounded={};save(S);renderSheet();updTop();toast('🏥 درمان همه مجروحان شروع شد');};
+window.finishHeal=()=>{if(!S.healing.length)return;let left=0;for(const j of S.healing)left+=j.left;
+  const gc=speedCost(left);if(S.resources.gold<gc)return toast('🪙 سکه کافی نیست ('+gc+' لازم)');
+  S.resources.gold-=gc;
+  for(const j of S.healing){S.troops[j.tid]=(S.troops[j.tid]||0)+j.count;bump(S,'healed',j.count);}
+  S.healing=[];save(S);renderSheet();updTop();toast('⚡ همه مجروحان فوری درمان شدند (-'+gc+'🪙)');};
+window.cancelHeal=(i)=>{const j=S.healing[i];if(!j)return;
+  const c=healCost(j.tid,j.count);for(const k in c)S.resources[k]+=Math.floor(c[k]*0.7);
+  S.wounded[j.tid]=(S.wounded[j.tid]||0)+j.count;S.healing.splice(i,1);save(S);renderSheet();};
 
 // ================= EXPEDITIONS =================
 let selTroops={},detailId=null;
+const getTarget=id=>S.tribes.find(t=>t.id===id)||(S.sites||[]).find(s=>s.id===id);
 window.setSel=(tid,n)=>{n=Math.max(0,Math.min(S.troops[tid]||0,parseInt(n||0)||0));selTroops[tid]=n;updateDetailTotals();};
-window.selMax=(tid)=>{selTroops[tid]=S.troops[tid]||0;renderSheet();};
-window.selAll=()=>{const cap=expeditionCap(S);let room=cap;
+window.selMax=(tid)=>{selTroops[tid]=Math.min(S.troops[tid]||0,Math.max(0,expeditionCap(S)-selCount()+(selTroops[tid]||0)));renderSheet();};
+const selCount=()=>Object.values(selTroops).reduce((a,b)=>a+(b||0),0);
+window.selAll=()=>{const cap=expeditionCap(S);let room=cap;selTroops={};
   for(const tid of Object.keys(TROOPS)){const take=Math.min(S.troops[tid]||0,room);if(take>0)selTroops[tid]=take;room-=take;}
   renderSheet();};
 window.selClear=()=>{selTroops={};renderSheet();};
 window.openDetail=(id)=>{detailId=id;selTroops={};openSheet('detail');};
 window.backToAttack=()=>{detailId=null;openSheet('attack');};
-window.launch=(tribeId)=>{const tr=S.tribes.find(t=>t.id===tribeId);if(!tr)return;
+window.launch=(tribeId)=>{const tr=getTarget(tribeId);if(!tr)return;
+  if(tr.kind&&!siteReady(tr,Date.now()))return toast('این مکان در حال بازسازی است');
   const cap=expeditionCap(S);const marches=maxMarches(S);
   if(S.marches.length>=marches)return toast('همه صف‌های لشکر پر است (سطح لشکر را بالا ببرید)');
   const army={};let count=0;
@@ -115,7 +143,8 @@ window.launch=(tribeId)=>{const tr=S.tribes.find(t=>t.id===tribeId);if(!tr)retur
   for(const tid in army)S.troops[tid]-=army[tid];
   const travel=dist(tr)/marchSpeed();
   S.marches.push({army,target:tribeId,tx:tr.x,ty:tr.y,hx:S.homePos.x,hy:S.homePos.y,travelLeft:travel,travelTotal:travel});
-  addLog(S,'info','🚩 لشکر به سمت '+tr.name+' حرکت کرد ('+armyCount(army)+' نفر)');
+  bump(S,'marches');
+  addLog(S,'info','🚩 لشکر به سمت '+tr.name+' حرکت کرد ('+fmt(armyCount(army))+' نفر)');
   selTroops={};save(S);openSheet('attack');toast('🚩 لشکر به سمت '+tr.name+' حرکت کرد — '+Math.ceil(travel)+'ث');};
 window.speedMarch=(idx)=>{const m=S.marches[idx];if(!m)return;
   const gc=speedCost(m.travelLeft);if(S.resources.gold<gc)return toast('🪙 سکه کافی نیست ('+gc+' لازم)');
@@ -124,34 +153,56 @@ window.cancelMarch=(idx)=>{const m=S.marches[idx];if(!m)return;
   for(const tid in m.army)S.troops[tid]=(S.troops[tid]||0)+m.army[tid];
   S.marches.splice(idx,1);save(S);renderSheet();toast('لشکر فراخوانده شد');};
 
+const ICO={food:'🌾',wood:'🪵',stone:'🪨',iron:'⛓️',gold:'🪙'};
+const mulNote=(m)=>m>=1.15?' • 🎯 تقابل به نفع تو ×'+m.toFixed(2):m<=0.88?' • ⚠ تقابل بر ضد تو ×'+m.toFixed(2):'';
+function sendHome(army,hx,hy){if(armyCount(army)<=0)return;
+  const d=Math.hypot(S.homePos.x-hx,S.homePos.y-hy)/marchSpeed();
+  S.marches.push({army,target:null,returning:true,tx:S.homePos.x,ty:S.homePos.y,hx,hy,travelLeft:d,travelTotal:d});}
 function resolveMarch(m){
-  const tr=S.tribes.find(t=>t.id===m.target);
-  if(!tr){for(const tid in m.army)S.troops[tid]=(S.troops[tid]||0)+m.army[tid];return;}
-  const r=resolveAttack(m.army,tr,tr.wall||0);
-  const gcount=armyCount(tr.garrison||{});
-  const distHome=Math.hypot(S.homePos.x-tr.x,S.homePos.y-tr.y);
+  const now=Date.now(),tr=getTarget(m.target);
+  if(!tr||(tr.kind&&!siteReady(tr,now))){
+    addLog(S,'info','🏳️ هدف دیگر در دسترس نبود — لشکر برگشت');toast('🏳️ هدف دیگر وجود ندارد — لشکر برمی‌گردد');
+    sendHome(m.army,m.tx,m.ty);return;}
+  const site=!!tr.kind,gcount=armyCount(tr.garrison||{});
+  const r=battle(m.army,{army:tr.garrison||{},power:tr.power},tr.wall||0,15);
+  const survivors={};for(const k in m.army){const n=m.army[k]-(r.attLosses[k]||0);if(n>0)survivors[k]=n;}
+  const hurt=addWounded(S,r.attLosses),lostTxt=armyCount(r.attLosses)?' — 🩹'+fmt(hurt.wounded)+' مجروح • ☠'+fmt(hurt.dead)+' کشته':'';
   if(r.win){
-    for(const k in r.loot)S.resources[k]=(S.resources[k]||0)+r.loot[k];
-    const killed=gcount;S.kills=(S.kills||0)+killed;
-    S.tribes=S.tribes.filter(t=>t.id!==tr.id);S.conquered++;
-    S.factionKills=S.factionKills||{};S.factionKills[tr.faction]=(S.factionKills[tr.faction]||0)+1;
-    const lostRatio=Math.min(0.4,r.def/Math.max(1,r.atk)*0.35);
-    const home={};for(const tid in m.army){home[tid]=Math.max(1,Math.floor(m.army[tid]*(1-lostRatio)));}
-    S.marches.push({army:home,target:null,returning:true,tx:S.homePos.x,ty:S.homePos.y,hx:tr.x,hy:tr.y,travelLeft:distHome/marchSpeed(),travelTotal:distHome/marchSpeed()});
-    addLog(S,'win','🏰 پیروزی! '+tr.name+' (Lv'+tr.level+') فتح شد — ☠'+fmt(killed)+' کشته — غنیمت: '+fmt(r.loot.gold||0)+'🪙 '+fmt(r.loot.food||0)+'🌾');
-    toast('🏰 <b>پیروزی!</b> '+tr.name+' فتح شد — غنیمت: +'+fmt(r.loot.gold||0)+'🪙');
+    const loot={...tr.loot};for(const k in loot)S.resources[k]=(S.resources[k]||0)+loot[k];
+    S.kills=(S.kills||0)+gcount;bump(S,'won');
+    if(site){lootSite(tr,now,Math.random);bump(S,'sites');
+      addLog(S,'win','💎 '+tr.name+' غارت شد — '+fmt(loot.gold||0)+'🪙 '+fmt(loot.iron||0)+'⛓️ '+fmt(loot.stone||0)+'🪨'+lostTxt+mulNote(r.atkMul));
+      toast('💎 <b>'+tr.name+'</b> غارت شد! +'+fmt(loot.gold||0)+'🪙');
+    }else{
+      S.tribes=S.tribes.filter(t=>t.id!==tr.id);S.conquered++;
+      S.factionKills=S.factionKills||{};S.factionKills[tr.faction]=(S.factionKills[tr.faction]||0)+1;
+      queueRespawn(S,tr,now,Math.random);
+      addLog(S,'win','🏰 پیروزی! '+tr.name+' (Lv'+tr.level+') فتح شد — ☠'+fmt(gcount)+' دشمن'+lostTxt+' — غنیمت: '+fmt(loot.gold||0)+'🪙 '+fmt(loot.food||0)+'🌾'+mulNote(r.atkMul));
+      toast('🏰 <b>پیروزی!</b> '+tr.name+' فتح شد — غنیمت: +'+fmt(loot.gold||0)+'🪙');}
   }else{
-    const killedL=Math.floor(gcount*Math.min(0.5,r.atk/Math.max(1,r.def)*0.3));S.kills=(S.kills||0)+killedL;
-    addLog(S,'lose','❌ شکست از '+tr.name+' — قدرت ما '+fmt(r.atk)+' در برابر '+fmt(r.def));
-    toast('❌ شکست از '+tr.name+' — قدرت ما '+fmt(r.atk)+' در برابر '+fmt(r.def));
-    const lostRatio=Math.min(0.85,r.def/Math.max(1,r.atk)*0.5);
-    const home={};for(const tid in m.army){home[tid]=Math.max(0,Math.floor(m.army[tid]*(1-lostRatio)));}
-    S.marches.push({army:home,target:null,returning:true,tx:S.homePos.x,ty:S.homePos.y,hx:tr.x,hy:tr.y,travelLeft:distHome/marchSpeed(),travelTotal:distHome/marchSpeed()});
-  }
+    S.kills=(S.kills||0)+Math.floor(gcount*r.dLoss);
+    scaleTribe(tr,Math.max(0.3,1-r.dLoss));
+    addLog(S,'lose','❌ شکست از '+tr.name+' — قدرت مؤثر ما '+fmt(r.atk)+' در برابر '+fmt(r.def)+lostTxt+mulNote(r.atkMul));
+    toast('❌ شکست از '+tr.name+' — '+fmt(r.atk)+' در برابر '+fmt(r.def));}
+  sendHome(survivors,tr.x,tr.y);
 }
+// حمله NPC به قلعه من
+function handleRaid(raid){
+  const o=resolveRaid(S,raid,Math.random),hurt=addWounded(S,o.myLosses);
+  S.kills=(S.kills||0)+o.kills;
+  const lostTxt=armyCount(o.myLosses)?' — 🩹'+fmt(hurt.wounded)+' مجروح • ☠'+fmt(hurt.dead)+' کشته':'';
+  if(o.attackerWon){
+    const lootTxt=Object.keys(o.loot).filter(k=>o.loot[k]>0).map(k=>fmt(o.loot[k])+ICO[k]).join(' ');
+    addLog(S,'lose','🔥 '+raid.name+' قلعه‌ات را غارت کرد'+lostTxt+' — غارت‌شده: '+lootTxt);
+    toast('🔥 <b>'+raid.name+'</b> قلعه‌ات را غارت کرد! سرباز و دیوار بیشتری لازم داری');
+  }else{
+    bump(S,'defended');
+    const gold=o.loot.gold||0;
+    addLog(S,'win','🛡 حمله '+raid.name+' دفع شد! ☠'+fmt(o.kills)+' دشمن'+lostTxt+' — غنیمت: '+fmt(gold)+'🪙');
+    toast('🛡 <b>حمله '+raid.name+' دفع شد!</b> ☠'+fmt(o.kills)+' دشمن کشته شد');}}
 
 // ================= UI =================
-let cur='build',atkSort='near',searchQ='',boardTab='power';
+let cur='build',atkSort='near',searchQ='',boardTab='power',trainBar='bar-1',trainCls='all',trainQty=100,qTab='daily';
 function costStr(c){return Object.entries(c).map(([k,v])=>({food:'🌾',wood:'🪵',stone:'🪨',iron:'⛓️',gold:'🪙'})[k]+' '+fmt(v)).join('  ');}
 function prodStr(t,l){const p=buildingProd(t,l);const e=Object.entries(p);if(!e.length)return'—';
   return e.map(([k,v])=>({food:'🌾',wood:'🪵',stone:'🪨',iron:'⛓️',gold:'🪙'})[k]+'+'+fmt(v*60)+'/د').join('  ');}
@@ -166,7 +217,37 @@ function tribeRow(t,onclick){return '<div class="res" onclick="'+onclick+'"><spa
   +'<div><b>'+t.name+'</b><br><span style="color:var(--dim);font-size:12px">'+(t.factionName||'')+'</span></div>'
   +'<div class="meta">Lv'+t.level+' • ⚔'+fmt(t.power)+'<br>📏'+Math.round(dist(t))+' • ⏱'+eta(t)+'ث</div></div>';}
 
-function renderSheet(){const B=$('sheetBody');if(!B||$('sheet').hidden)return;
+const costChips=c=>Object.entries(c).map(([k,v])=>'<span class="'+((S.resources[k]||0)>=v?'ok':'no')+'">'+ICO[k]+' '+fmt(v)+'</span>').join(' ');
+function sheetSeg(){const wc=woundedCount(S);
+  return '<div class="seg"><button class="'+(cur==='train'?'on':'')+'" onclick="openSheet(\'train\')">⚔️ سربازخانه</button><button class="'+(cur==='hospital'?'on':'')+'" onclick="openSheet(\'hospital\')">🏥 بیمارستان'+(wc?' • 🩹'+fmt(wc):'')+'</button></div>';}
+function maxAfford(tid){const T=TROOPS[tid];let m=Infinity;for(const k in T.cost)m=Math.min(m,Math.floor((S.resources[k]||0)/T.cost[k]));return Math.max(0,m);}
+function troopCard(tid,lvl){
+  const T=TROOPS[tid],cls=TROOP_CLASS[tid],locked=T.unlock>lvl;
+  const beats=Object.keys(COUNTER[cls]).filter(d=>COUNTER[cls][d]>=1.3).map(d=>CLASS_INFO[d].icon).join(' ');
+  const weak=Object.keys(COUNTER[cls]).filter(d=>COUNTER[cls][d]<=0.8).map(d=>CLASS_INFO[d].icon).join(' ');
+  const qty=trainQty,cost={};for(const k in T.cost)cost[k]=T.cost[k]*qty;
+  const t=Math.ceil(T.time*Math.pow(qty,0.7)/(1+lvl*0.22)),mx=maxAfford(tid),ok=canPay(cost);
+  return '<div class="tcard'+(locked?' lock':'')+'"><div class="trow"><b>'+T.icon+' '+T.name+' <span class="chip">'+CLASS_INFO[cls].icon+' '+CLASS_INFO[cls].name+'</span></b><span class="tpow">👥 '+fmt(S.troops[tid]||0)+'</span></div>'
+   +(locked?'<div class="q">🔒 نیاز به سربازخانه Lv'+T.unlock+'</div>'
+   :'<div class="q">⚔ قدرت '+T.power+' • ⏱ '+(t>=60?Math.floor(t/60)+'د ':'')+(t%60)+'ث برای '+fmt(qty)+'</div>'
+   +'<div class="q">'+(beats?'✅ قوی در برابر: '+beats:'')+(weak?' &nbsp; ⚠️ ضعیف در برابر: '+weak:'')+'</div>'
+   +'<div class="q">'+costChips(cost)+'</div>'
+   +'<div class="row"><button class="btn sm" '+(ok?'':'disabled')+' onclick="train(\''+trainBar+'\',\''+tid+'\','+qty+')">⚔ ساخت '+fmt(qty)+'</button>'
+   +'<button class="btn sm ghost" '+(mx<1?'disabled':'')+' onclick="trainMax(\''+trainBar+'\',\''+tid+'\')">MAX ('+fmt(mx)+')</button>'
+   +'<button class="btn sm gold" '+(ok?'':'disabled')+' onclick="instantTrain(\''+trainBar+'\',\''+tid+'\','+qty+')">⚡ '+speedCost(T.time*Math.pow(qty,0.7)/(1+lvl*0.22))+'🪙</button></div>')+'</div>';}
+window.setTrainBar=id=>{trainBar=id;renderSheet();};
+window.setTrainCls=k=>{trainCls=k;renderSheet();};
+window.setTrainQty=n=>{trainQty=Math.max(1,Math.min(100000,parseInt(n)||1));renderSheet();};
+window.trainMax=(barId,tid)=>{const n=maxAfford(tid);if(n<1)return toast('منابع کافی نیست');train(barId,tid,n);};
+window.setQTab=k=>{qTab=k;renderSheet();};
+window.claimQ=(list,i)=>{const rw=claimQuest(S,list,i);if(!rw)return;save(S);updTop();renderSheet();toast('🎁 جایزه دریافت شد: +'+fmt(rw.gold)+'🪙');};
+window.claimA=id=>{const rw=claimAch(S,id);if(!rw)return;save(S);updTop();renderSheet();toast('🏅 دستاورد! +'+fmt(rw.gold)+'🪙');};
+window.openSheet=k=>openSheet(k);
+const ER_SEG=()=>'<div class="seg"><button class="'+(cur==='empire'?'on':'')+'" onclick="openSheet(\'empire\')">👑 امپراتوری</button><button class="'+(cur==='reports'?'on':'')+'" onclick="openSheet(\'reports\')">📜 گزارش‌ها</button></div>';
+function renderSheet(){const els=[$('sheetBody'),$('sheetCard')],st=els.map(e=>e?e.scrollTop:0);
+  _renderSheet();if(!$('sheet').hidden&&(cur==='empire'||cur==='reports'))$('sheetBody').insertAdjacentHTML('afterbegin',ER_SEG());
+  els.forEach((e,i)=>{if(e)e.scrollTop=st[i];});}
+function _renderSheet(){const B=$('sheetBody');if(!B||$('sheet').hidden)return;
 if(cur==='build'){
   B.innerHTML=S.buildings.map(b=>{const u=S.upgrades.find(x=>x.id===b.id);
     const c=upgradeCost(b.type,b.level);
@@ -177,49 +258,86 @@ if(cur==='build'){
     return '<div class="card"><div class="bhead">'+BUILD_DEFS[b.type].icon+' <b>'+BUILD_DEFS[b.type].name+'</b> <span class="lvl">Lv'+b.level+'/'+MAX_LEVEL+'</span></div>'+st+'</div>';}).join('')
     +(S.upgrades.length>1?'<button class="btn wide" onclick="speedAll()">⚡ تسریع همه ارتقاها ('+S.upgrades.reduce((a,u)=>a+speedCost(u.left),0)+'🪙)</button>':'');}
 if(cur==='train'){
-  B.innerHTML=Object.keys(S.training).map(barId=>{const lvl=S.buildings.find(b=>b.id===barId)?.level||1;
-    const qs=S.training[barId].map((q,i)=>{const pct=Math.floor((1-q.left/q.total)*100);
-      return '<div class="q">⏳ '+TROOPS[q.tid].icon+' '+TROOPS[q.tid].name+' ×'+q.count+' — '+Math.ceil(q.left)+'ث <button class="btn sm" onclick="finishQ(\''+barId+'\')">⚡ همه ('+speedCost(S.training[barId].reduce((a,j)=>a+j.left,0))+'🪙)</button> <button class="btn sm ghost" onclick="cancelQ(\''+barId+'\','+i+')">لغو</button></div><div class="bar"><i style="width:'+pct+'%"></i></div>';}).join('')||'<div class="q">صف خالی</div>';
-    const btns=Object.keys(TROOPS).map(tid=>{const T=TROOPS[tid];
-      const locked=T.unlock>lvl;
-      return '<div class="tcard'+(locked?' lock':'')+'"><div class="trow"><b>'+T.icon+' '+T.name+'</b><span class="tpow">⚔'+T.power+' • 👥'+fmt(S.troops[tid]||0)+'</span></div>'
-      +(locked?'<div class="q">🔒 سربازخانه Lv'+T.unlock+'</div>'
-        :'<div class="q">'+costStr(T.cost)+' • '+T.time+'ث</div><div class="row">'
-        +BATCH_OPTIONS.map(n=>'<button class="btn sm" onclick="train(\''+barId+'\',\''+tid+'\','+n+')">'+n+'</button>').join('')
-        +'<button class="btn sm gold" onclick="instantTrain(\''+barId+'\',\''+tid+'\',1000)">⚡۱۰۰۰ لحظه‌ای</button></div>');}).join('');
-    return '<div class="card"><div class="bhead">⚔️ <b>سربازخانه '+(barId.slice(-1))+'</b> <span class="lvl">Lv'+lvl+'</span></div>'+qs+'</div>'+btns;}).join('');}
+  const bars=Object.keys(S.training);if(!bars.includes(trainBar))trainBar=bars[0];
+  const lvl=S.buildings.find(b=>b.id===trainBar)?.level||1;
+  let h=sheetSeg();
+  h+='<div class="q" style="justify-content:center;text-align:center">🔄 چرخه تقابل: 🗡️ پیاده ▶ 🔱 نیزه‌دار ▶ 🐎 سواره ▶ 🏹 کماندار ▶ 🗡️ پیاده • 💣 محاصره دیوار را می‌شکند</div>';
+  h+='<div class="seg">'+bars.map((id,i)=>{const L=S.buildings.find(b=>b.id===id)?.level||1,q=S.training[id].length;
+    return '<button class="'+(id===trainBar?'on':'')+'" onclick="setTrainBar(\''+id+'\')">🏰 سربازخانه '+(i+1)+' • Lv'+L+(q?' • ⏳'+q:'')+'</button>';}).join('')+'</div>';
+  h+='<div class="seg"><span class="q" style="margin:0 4px">تعداد:</span>'+[1,10,100,1000,5000].map(n=>'<button class="'+(trainQty===n?'on':'')+'" onclick="setTrainQty('+n+')">'+fmt(n)+'</button>').join('')
+    +'<input class="qin" type="number" min="1" value="'+trainQty+'" onchange="setTrainQty(this.value)"></div>';
+  h+='<div class="seg">'+[['all','همه']].concat(Object.entries(CLASS_INFO).map(([k,v])=>[k,v.icon+' '+v.name])).map(([k,l])=>'<button class="'+(trainCls===k?'on':'')+'" onclick="setTrainCls(\''+k+'\')">'+l+'</button>').join('')+'</div>';
+  const ql=S.training[trainBar];
+  if(ql.length){h+='<div class="card"><div class="bhead">⏳ <b>صف این سربازخانه</b><button class="btn sm" onclick="finishQ(\''+trainBar+'\')">⚡ همه ('+speedCost(ql.reduce((a,j)=>a+j.left,0))+'🪙)</button></div>'
+    +ql.map((q,i)=>{const pct=Math.floor((1-q.left/q.total)*100);
+      return '<div class="q">'+TROOPS[q.tid].icon+' '+TROOPS[q.tid].name+' ×'+fmt(q.count)+' — '+Math.ceil(q.left)+'ث'+(i?' (در انتظار)':'')+' <button class="btn sm ghost" onclick="cancelQ(\''+trainBar+'\','+i+')">لغو</button></div>'+(i?'':'<div class="bar"><i style="width:'+pct+'%"></i></div>');}).join('')+'</div>';}
+  h+=Object.keys(TROOPS).filter(tid=>trainCls==='all'||TROOP_CLASS[tid]===trainCls).map(tid=>troopCard(tid,lvl)).join('');
+  B.innerHTML=h;}
+if(cur==='hospital'){
+  const lvl=hospitalLevel(S),cap=hospitalCap(lvl),w=woundedCount(S),hc=healingCount(S);
+  let h=sheetSeg();
+  h+='<div class="card hero"><div class="bhead">🏥 <b>بیمارستان</b><span class="lvl">Lv'+lvl+'</span></div>'
+    +'<div class="q">🩹 ظرفیت: '+fmt(w+hc)+' / '+fmt(cap)+' <button class="btn sm" onclick="openSheet(\'build\')">⬆ ارتقای بیمارستان</button></div>'
+    +'<div class="bar"><i style="width:'+Math.min(100,Math.floor((w+hc)/Math.max(1,cap)*100))+'%"></i></div>'
+    +'<div class="q">بعد از هر جنگ، ۵۵٪ تلفات مجروح می‌شوند و در بیمارستان می‌مانند (بقیه کشته). درمان فقط ۳۵٪ هزینه و ۲۵٪ زمان ساخت دارد. مجروحِ بیش از ظرفیت می‌میرد.</div></div>';
+  if(S.healing.length){h+='<div class="card"><div class="bhead">⏳ <b>در حال درمان</b><button class="btn sm" onclick="finishHeal()">⚡ همه ('+speedCost(S.healing.reduce((a,j)=>a+j.left,0))+'🪙)</button></div>'
+    +S.healing.map((j,i)=>'<div class="q">'+TROOPS[j.tid].icon+' '+TROOPS[j.tid].name+' ×'+fmt(j.count)+' — '+Math.ceil(j.left)+'ث'+(i?' (در انتظار)':'')+' <button class="btn sm ghost" onclick="cancelHeal('+i+')">لغو</button></div>'+(i?'':'<div class="bar"><i style="width:'+Math.floor((1-j.left/j.total)*100)+'%"></i></div>')).join('')+'</div>';}
+  const tids=Object.keys(S.wounded);
+  if(!tids.length)h+='<div class="card">✅ مجروحی نداری. هر جنگ مجروح می‌دهد؛ اینجا درمانشان کن.</div>';
+  else{
+    const tot={};for(const t of tids){const c=healCost(t,S.wounded[t]);for(const k in c)tot[k]=(tot[k]||0)+c[k];}
+    h+='<button class="btn wide" onclick="healAll()">🩹 درمان همه ('+fmt(w)+' نفر) — '+costStr(tot)+'</button>';
+    h+=tids.map(t=>{const n=S.wounded[t],c=healCost(t,n),own=canPay(c);
+      return '<div class="tcard"><div class="trow"><b>'+TROOPS[t].icon+' '+TROOPS[t].name+'</b><span class="tpow">🩹 '+fmt(n)+' مجروح</span></div>'
+       +'<div class="q">'+costChips(c)+' • ⏱ '+healTime(t,n,lvl)+'ث</div>'
+       +'<div class="row"><button class="btn sm" '+(own?'':'disabled')+' onclick="heal(\''+t+'\','+n+')">🩹 درمان همه</button>'
+       +(n>10?'<button class="btn sm ghost" onclick="heal(\''+t+'\','+Math.ceil(n/2)+')">نیمی</button>':'')+'</div></div>';}).join('');}
+  B.innerHTML=h;}
+if(cur==='quests'){B.innerHTML=questsHTML(S,qTab,fmt);}
 if(cur==='attack'){
-  const cap=expeditionCap(S),mm=maxMarches(S);
-  let h='<div class="card hero"><div class="bhead">🚩 <b>لشکر</b> <span class="lvl">ظرفیت '+cap+' • '+S.marches.length+'/'+mm+' صف • '+S.tribes.length+' هدف</span></div></div>';
-  if(S.marches.length){h+=S.marches.map((m,i)=>{
-    const tr=S.tribes.find(t=>t.id===m.target);
-    if(m.returning)return '<div class="card"><b>🏳️ بازگشت به خانه</b> — '+Math.ceil(m.travelLeft)+'ث <button class="btn sm" onclick="speedMarch('+i+')">⚡ '+speedCost(m.travelLeft)+'🪙</button></div>';
-    return '<div class="card"><b>🎯 '+(tr?.name||'هدف')+'</b> — '+Math.ceil(m.travelLeft)+'ث • 👥'+fmt(armyCount(m.army))+' ⚔'+fmt(armyPower(m.army))+' <button class="btn sm" onclick="speedMarch('+i+')">⚡ '+speedCost(m.travelLeft)+'🪙</button> <button class="btn sm ghost" onclick="cancelMarch('+i+')">فراخوان</button></div>';}).join('');}
+  const cap=expeditionCap(S),mm=maxMarches(S),wl=S.buildings.find(b=>b.type==='wall')?.level||0;
+  let h='<div class="card hero"><div class="bhead">🚩 <b>لشکر</b> <span class="lvl">ظرفیت '+fmt(cap)+' • '+S.marches.length+'/'+mm+' صف</span></div>'
+    +'<div class="q">🛡 دفاع قلعه: ⚔'+fmt(armyPower(S.troops))+' • 🧱 دیوار Lv'+wl+' • 🩹 مجروح: '+fmt(woundedCount(S))+'</div></div>';
+  for(const r of S.incoming)h+='<div class="card danger"><b>⚠️ حمله دشمن: '+r.name+'</b><div class="q">⏱ '+Math.ceil(r.left)+' ثانیه تا رسیدن • 👥'+fmt(armyCount(r.army))+' ⚔'+fmt(r.power)+' — دفاع شما ⚔'+fmt(armyPower(S.troops))+'</div></div>';
+  h+=S.marches.map((m,i)=>{const tr=getTarget(m.target);
+    if(m.returning)return '<div class="card"><b>🏳️ بازگشت به خانه</b> — 👥'+fmt(armyCount(m.army))+' • '+Math.ceil(m.travelLeft)+'ث <button class="btn sm" onclick="speedMarch('+i+')">⚡ '+speedCost(m.travelLeft)+'🪙</button></div>';
+    return '<div class="card"><b>🎯 '+(tr?.name||'هدف')+'</b> — '+Math.ceil(m.travelLeft)+'ث • 👥'+fmt(armyCount(m.army))+' ⚔'+fmt(armyPower(m.army))+' <button class="btn sm" onclick="speedMarch('+i+')">⚡ '+speedCost(m.travelLeft)+'🪙</button> <button class="btn sm ghost" onclick="cancelMarch('+i+')">فراخوان</button></div>';}).join('');
   h+='<div class="seg">'
-    +'<button class="'+(atkSort==='near'?'on':'')+'" onclick="setAtkSort(\'near\')">📏 نزدیک‌ترین</button>'
-    +'<button class="'+(atkSort==='weak'?'on':'')+'" onclick="setAtkSort2(\'weak\')">🐣 ضعیف‌ترین</button>'
-    +'<button class="'+(atkSort==='strong'?'on':'')+'" onclick="setAtkSort2(\'strong\')">🐉 قوی‌ترین</button>'
-    +'<button class="'+(atkSort==='level'?'on':'')+'" onclick="setAtkSort2(\'level\')">🏰 سطح</button></div>';
-  const list=sortedTribes();
-  h+=list.slice(0,25).map(t=>tribeRow(t,'openDetail(\''+t.id+'\')')).join('');
-  if(list.length>25)h+='<div class="q" style="justify-content:center">… و '+(list.length-25)+' قلعه دیگر — از 🔍 جستجو یا مرتب‌سازی استفاده کنید</div>';
+    +'<button class="'+(atkSort==='near'?'on':'')+'" onclick="setAtkSort(\'near\')">📏 نزدیک</button>'
+    +'<button class="'+(atkSort==='weak'?'on':'')+'" onclick="setAtkSort(\'weak\')">🐣 ضعیف</button>'
+    +'<button class="'+(atkSort==='strong'?'on':'')+'" onclick="setAtkSort(\'strong\')">🐉 قوی</button>'
+    +'<button class="'+(atkSort==='level'?'on':'')+'" onclick="setAtkSort(\'level\')">🏰 سطح</button>'
+    +'<button class="'+(atkSort==='sites'?'on':'')+'" onclick="setAtkSort(\'sites\')">💎 گنج و غار</button></div>';
+  if(atkSort==='sites'){
+    const now=Date.now(),L=[...(S.sites||[])].sort((a,b)=>dist(a)-dist(b));
+    h+=L.map(t=>{const ready=siteReady(t,now);
+      return '<div class="res" onclick="openDetail(\''+t.id+'\')"><span style="font-size:20px">'+SITE_KINDS[t.kind].icon+'</span>'
+       +'<div><b>'+t.name+'</b><br><span style="color:var(--dim);font-size:12px">'+SITE_KINDS[t.kind].note+(ready?'':' • 💤 '+Math.ceil((t.cd-now)/1000)+'ث')+'</span></div>'
+       +'<div class="meta">Lv'+t.level+' • ⚔'+fmt(t.power)+'<br>📏'+Math.round(dist(t))+' • ⏱'+eta(t)+'ث</div></div>';}).join('');
+  }else{
+    const list=sortedTribes();
+    h+=list.slice(0,25).map(t=>tribeRow(t,'openDetail(\''+t.id+'\')')).join('');
+    if(list.length>25)h+='<div class="q" style="justify-content:center">… و '+(list.length-25)+' قلعه دیگر — از 🔍 جستجو یا مرتب‌سازی استفاده کنید</div>';}
   B.innerHTML=h;}
 if(cur==='detail'){
-  const t=S.tribes.find(x=>x.id===detailId);
+  const t=getTarget(detailId);
   if(!t){cur='attack';renderSheet();return;}
-  const def=t.power+(t.wall||0)*15;
+  const site=!!t.kind,now=Date.now(),def=t.power+(t.wall||0)*15;
+  const best=bestCounters(t.garrison||{});
   let h='<button class="btn sm ghost" onclick="backToAttack()">→ بازگشت به فهرست</button>';
-  h+='<div class="card hero"><div class="bhead"><span class="fdot" style="background:'+(t.color||'#e5484d')+'"></span><b>'+t.name+'</b><span class="lvl">Lv'+t.level+'</span></div>'
-    +'<div class="q">'+(t.factionName||'')+' • 🛡 دیوار Lv'+(t.wall||0)+' • ⚔ پاور دفاع: '+fmt(def)+'</div>'
-    +'<div class="q">📏 فاصله: '+Math.round(dist(t))+' • ⏱ زمان رسیدن: '+eta(t)+' ثانیه</div>'
+  h+='<div class="card hero"><div class="bhead">'+(site?'<span style="font-size:20px">'+SITE_KINDS[t.kind].icon+'</span>':'<span class="fdot" style="background:'+(t.color||'#e5484d')+'"></span>')+'<b>'+t.name+'</b><span class="lvl">Lv'+t.level+'</span></div>'
+    +'<div class="q">'+(site?SITE_KINDS[t.kind].note:(t.factionName||''))+(t.wall?' • 🧱 دیوار Lv'+t.wall:'')+' • ⚔ پاور دفاع: '+fmt(def)+'</div>'
+    +'<div class="q">📏 فاصله: '+Math.round(dist(t))+' • ⏱ رسیدن: '+eta(t)+' ثانیه • 👥 نگهبان: '+fmt(armyCount(t.garrison||{}))+'</div>'
     +'<div class="q">💰 غنیمت: '+costStr(t.loot)+'</div>'
-    +'<div class="q">🛡 گارد: '+Object.entries(t.garrison||{}).map(([k,v])=>TROOPS[k].icon+fmt(v)).join(' ')+'</div></div>';
+    +'<div class="q">🛡 گارد: '+Object.entries(t.garrison||{}).map(([k,v])=>TROOPS[k].icon+fmt(v)).join(' ')+'</div>'
+    +(best.length?'<div class="q">💡 پیشنهاد تقابل: '+best.map(b=>b.icon+' '+b.name+' ×'+b.mult.toFixed(2)).join(' و ')+'</div>':'')+'</div>';
+  if(site&&!siteReady(t,now)){h+='<div class="card">💤 در حال بازسازی — '+Math.ceil((t.cd-now)/1000)+' ثانیه دیگر با نگهبانان قوی‌تر برمی‌گردد.</div>';B.innerHTML=h;return;}
   const owned=Object.keys(TROOPS).filter(tid=>(S.troops[tid]||0)>0);
   if(!owned.length)h+='<div class="card">سربازی نداری! از منوی ⚔️ سرباز، نیرو بساز.</div>';
   else{
-    h+='<div class="row"><button class="btn sm" onclick="selAll()">✚ انتخاب همه (تا ظرفیت)</button><button class="btn sm ghost" onclick="selClear()">✕ پاک کردن</button></div>';
-    h+=owned.map(tid=>{const T=TROOPS[tid];
-      return '<div class="armyrow"><span>'+T.icon+'</span><b>'+T.name+'</b><span class="cnt">موجود: '+fmt(S.troops[tid])+' • ⚔'+T.power+'</span>'
+    h+='<div class="row"><button class="btn sm" onclick="selAll()">✚ انتخاب همه (تا ظرفیت '+fmt(expeditionCap(S))+')</button><button class="btn sm ghost" onclick="selClear()">✕ پاک کردن</button></div>';
+    h+=owned.map(tid=>{const T=TROOPS[tid],m=troopMultVs(tid,t.garrison||{}),col=m>1.15?'var(--green)':m<0.88?'var(--red)':'var(--dim)';
+      return '<div class="armyrow"><span>'+T.icon+'</span><b>'+T.name+'</b><span class="cnt">'+CLASS_INFO[TROOP_CLASS[tid]].icon+' موجود: '+fmt(S.troops[tid])+' • ⚔'+T.power+' • <b style="color:'+col+'">🎯×'+m.toFixed(2)+'</b></span>'
       +'<input type="number" min="0" max="'+S.troops[tid]+'" value="'+(selTroops[tid]||0)+'" onchange="setSel(\''+tid+'\',this.value)">'
       +'<button class="btn sm ghost" onclick="selMax(\''+tid+'\')">MAX</button></div>';}).join('');
     h+='<div class="card"><div id="selTotals"></div>'
@@ -284,18 +402,21 @@ window.goHome=()=>{$('sheet').hidden=true;$('tabWorld').classList.add('on');$('t
 window.setAtkSort=(k)=>{atkSort=k;renderSheet();};
 window.setAtkSort2=(k)=>{atkSort=k;renderSheet();};
 window.doSearch=(q)=>{searchQ=q;renderSheet();};
-window.jumpTo=(id)=>{const t=S.tribes.find(x=>x.id===id);if(!t)return;
+window.jumpTo=(id)=>{const t=getTarget(id);if(!t)return;
   $('sheet').hidden=true;$('tabWorld').classList.add('on');$('tabCastle').classList.remove('on');
   R.setView('world');R.centerOn(t.x,t.y);R.zoom=Math.max(R.zoom,1);
   toast('📍 '+t.name+' • Lv'+t.level+' • ⚔'+fmt(t.power));};
 function updateDetailTotals(){const el=$('selTotals');if(!el||!detailId)return;
-  const t=S.tribes.find(x=>x.id===detailId);if(!t)return;
-  let cnt=0,pw=0;for(const tid in selTroops){const n=selTroops[tid]||0;cnt+=n;pw+=n*TROOPS[tid].power;}
-  const def=t.power+(t.wall||0)*15;const cap=expeditionCap(S);
-  const ok=pw>def*1.02&&cnt<=cap&&cnt>0;
-  el.innerHTML='<div class="trow"><b>👥 '+fmt(cnt)+'/'+cap+'</b><span class="tpow" style="color:'+(ok?'var(--green)':'var(--red)')+'">⚔'+fmt(pw)+' در برابر '+fmt(def)+' '+(ok?'✅ شانس پیروزی':'⚠️ کافی نیست')+'</span></div>';}
+  const t=getTarget(detailId);if(!t)return;
+  const army={};let cnt=0;for(const tid in selTroops){const n=selTroops[tid]||0;if(n>0){army[tid]=n;cnt+=n;}}
+  const cap=expeditionCap(S);
+  if(!cnt){el.innerHTML='<div class="q">سربازی انتخاب نشده — از ردیف‌های بالا تعداد را وارد کن</div>';return;}
+  const r=battle(army,{army:t.garrison||{},power:t.power},t.wall||0,15);
+  const ok=r.win&&cnt<=cap;
+  el.innerHTML='<div class="trow"><b>👥 '+fmt(cnt)+'/'+fmt(cap)+'</b><span class="tpow" style="color:'+(ok?'var(--green)':'var(--red)')+'">⚔'+fmt(r.atk)+' در برابر '+fmt(r.def)+' '+(cnt>cap?'⚠️ بیش از ظرفیت':ok?'✅ شانس پیروزی':'⚠️ کافی نیست')+'</span></div>'
+   +'<div class="q">🎯 ضریب تقابل: شما ×'+r.atkMul.toFixed(2)+' • دشمن ×'+r.defMul.toFixed(2)+' • 📉 تلفات تخمینی شما: '+Math.round(r.aLoss*100)+'٪ (۵۵٪ از تلفات مجروح می‌شود 🏥)</div>';}
 function openSheet(k){cur=k;$('sheet').hidden=false;
-  $('sheetTitle').textContent={build:'🏗️ ساخت و ارتقا',train:'⚔️ تربیت سرباز — لحظه‌ای با سکه',attack:'🚩 لشکرکشی',detail:'🎯 جزئیات هدف',search:'🔍 جستجو در نقشه',reports:'📜 گزارش‌ها',empire:'👑 امپراتوری',board:'🏆 لیدربرد'}[k]||'';
+  $('sheetTitle').textContent={build:'🏗️ ساخت و ارتقا',train:'⚔️ سربازخانه',attack:'🚩 لشکرکشی',detail:'🎯 جزئیات هدف',search:'🔍 جستجو در نقشه',reports:'📜 گزارش‌ها',empire:'👑 امپراتوری',board:'🏆 لیدربرد',hospital:'🏥 بیمارستان',quests:'🎯 ماموریت‌ها و دستاوردها'}[k]||'';
   renderSheet();}
 document.querySelectorAll('#dock button').forEach(b=>b.onclick=()=>openSheet(b.dataset.act));
 $('sheetClose').onclick=()=>$('sheet').hidden=true;
@@ -306,6 +427,7 @@ $('zout').onclick=()=>R.zoomBy(0.77);
 R.onTap=(hit)=>{
   if(hit.kind==='minimap'){R.centerOn(hit.wx,hit.wy);R.hl=null;return;}
   if(hit.kind==='tribe'){openDetail(hit.tribe.id);}
+  if(hit.kind==='site'){openDetail(hit.site.id);}
   if(hit.kind==='home'){R.setView('castle');$('tabCastle').classList.add('on');$('tabWorld').classList.remove('on');}};
 $('tabWorld').onclick=()=>{R.setView('world');$('tabWorld').classList.add('on');$('tabCastle').classList.remove('on');};
 $('tabCastle').onclick=()=>{R.setView('castle');$('tabCastle').classList.add('on');$('tabWorld').classList.remove('on');};
@@ -316,22 +438,38 @@ $('btnHelp').onclick=()=>{const h=$('helpBox');h.hidden=!h.hidden;};
 // ================= tick =================
 let tickN=0;
 setInterval(()=>{
-  if(++tickN%5===0)npcTick(S,Math.random,25);
+  tickN++;const now=Date.now();
+  if(tickN%5===0)npcTick(S,Math.random,25);
+  if(tickN%10===0)npcGrow(S,Math.random,40);
+  if(tickN%NPC.warEverySec===0)startWar(S,Math.random);
   for(const b of S.buildings){const p=buildingProd(b.type,b.level);for(const k in p)S.resources[k]+=p[k]/60*20;}
   for(const u of[...S.upgrades]){u.left-=1;
     if(u.left<=0){const b=S.buildings.find(x=>x.id===u.id);if(b)b.level++;
-      S.upgrades=S.upgrades.filter(x=>x.id!==u.id);
+      S.upgrades=S.upgrades.filter(x=>x.id!==u.id);bump(S,'upgraded');
       addLog(S,'info','✅ '+BUILD_DEFS[u.type].name+' به Lv'+b.level+' رسید');
       toast('✅ '+BUILD_DEFS[u.type].name+' به Lv'+b.level+' رسید');}}
   for(const barId in S.training){const q=S.training[barId][0];
-    if(q){q.left-=1;if(q.left<=0){S.troops[q.tid]=(S.troops[q.tid]||0)+q.count;S.training[barId].shift();
+    if(q){q.left-=1;if(q.left<=0){S.troops[q.tid]=(S.troops[q.tid]||0)+q.count;S.training[barId].shift();bump(S,'trained',q.count);
       addLog(S,'info','⚔ '+q.count+'× '+TROOPS[q.tid].name+' آماده شد');
       toast('✅ '+q.count+'× '+TROOPS[q.tid].name+' آماده شد');}}}
+  const hj=S.healing[0];
+  if(hj){hj.left-=1;if(hj.left<=0){S.troops[hj.tid]=(S.troops[hj.tid]||0)+hj.count;bump(S,'healed',hj.count);S.healing.shift();
+    addLog(S,'info','🏥 '+fmt(hj.count)+'× '+TROOPS[hj.tid].name+' درمان شدند');toast('🏥 '+fmt(hj.count)+'× '+TROOPS[hj.tid].name+' درمان شدند');}}
   for(const m of[...S.marches]){m.travelLeft-=1;
     if(m.travelLeft<=0){S.marches=S.marches.filter(x=>x!==m);
       if(m.returning){for(const tid in m.army)S.troops[tid]=(S.troops[tid]||0)+m.army[tid];addLog(S,'info','🏳️ لشکر به خانه بازگشت');toast('🏳️ لشکر به خانه بازگشت');}
       else resolveMarch(m);}}
+  // دنیای NPC: جنگ با هم، جایگزینی قوی‌تر، حمله به من
+  for(const m of[...S.npcMarches]){m.left-=1;
+    if(m.left<=0){S.npcMarches=S.npcMarches.filter(x=>x!==m);const o=resolveWar(S,m,now,Math.random);
+      if(o&&o.type==='fall'&&Math.hypot(o.B.x-S.homePos.x,o.B.y-S.homePos.y)<70)addLog(S,'info','⚔️ '+o.A.name+' قلعه '+o.B.name+' را نابود کرد — به‌زودی قلعه‌ای قوی‌تر جایش می‌آید');}}
+  processRespawns(S,now,Math.random);
+  const raid=maybeRaid(S,now,Math.random);
+  if(raid){addLog(S,'lose','⚠️ '+raid.name+' با ⚔'+fmt(raid.power)+' به قلعه‌ات لشکر کشید — '+Math.ceil(raid.left)+' ثانیه تا رسیدن!');
+    toast('⚠️ <b>حمله دشمن!</b> '+raid.name+' — '+Math.ceil(raid.left)+'ث');}
+  for(const r of[...S.incoming]){r.left-=1;if(r.left<=0){S.incoming=S.incoming.filter(x=>x!==r);handleRaid(r);}}
+  if(tickN%30===0)ensureQuests(S,now);
   save(S);updTop();
-  if(cur&&!$('sheet').hidden&&cur!=='detail'&&cur!=='search'&&cur!=='board')renderSheet();},1000);
+  if(cur&&!$('sheet').hidden&&!['detail','search','board','quests'].includes(cur)&&document.activeElement?.tagName!=='INPUT')renderSheet();},1000);
 (function loop(){R.draw();requestAnimationFrame(loop);})();
 updTop();

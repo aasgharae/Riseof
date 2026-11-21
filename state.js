@@ -23,11 +23,18 @@ function migrateV8(o){
   if(!o.log)o.log=[];
   addLog(o,'info','🌍 جهان جدید و بزرگ‌تر (۸۰۰×۵۶۰) ساخته شد — منابع و ساختمان‌هایت حفظ شد');
   return o;}
-export function load(){try{const s=localStorage.getItem(SAVE_KEY);
+// فیلدهای نسخه ۴ (بیمارستان، حمله NPC، گنج، ماموریت) برای سیوهای قدیمی
+export function ensureDefaults(S){
+  S.wounded=S.wounded||{};S.healing=S.healing||[];S.incoming=S.incoming||[];S.npcMarches=[];S.respawns=S.respawns||[];
+  S.stats=S.stats||{};if(S.nextRaid==null)S.nextRaid=0;
+  if(!S.buildings.some(b=>b.type==='hospital'))S.buildings.push({id:'hosp-1',type:'hospital',x:22,y:13,level:1});
+  return S;}
+function loadRaw(){try{const s=localStorage.getItem(SAVE_KEY);
   if(s){const o=JSON.parse(s);if(o.v===9){if(!o.log)o.log=[];if(o.kills==null)o.kills=0;return o;}}
   const old=localStorage.getItem(LEGACY_KEY);
   if(old){const m=migrateV8(JSON.parse(old));if(m){save(m);return m;}}
 }catch(e){}const f=freshState();save(f);return f;}
+export const load=()=>ensureDefaults(loadRaw());
 export function save(s){try{localStorage.setItem(SAVE_KEY,JSON.stringify(s));}catch(e){}}
 export function storageCap(s){const k=(s.buildings.find(b=>b.type==='keep')?.level||1);return STORAGE_BASE+k*1000000;}
 export function troopCap(s){return Infinity;}

@@ -44,6 +44,19 @@ ram:{name:'دژکوب',icon:'🐏',cost:{wood:260,iron:110,stone:120},time:60,po
 ballista:{name:'بالیستا',icon:'🎯',cost:{wood:220,iron:130},time:65,power:82,unlock:20},
 catapult:{name:'منجنیق',icon:'💣',cost:{wood:280,stone:220,iron:100},time:80,power:105,unlock:24}};
 
+// ---- کلاس نیروها و تقابل: پیاده > نیزه‌دار > سواره > کماندار > پیاده (چرخه) ----
+export const TROOP_CLASS={swordsman:'inf',axeman:'inf',guard:'inf',spearman:'spear',archer:'archer',
+ cavalry:'cav',camel:'cav',knight:'cav',royal:'cav',ram:'siege',ballista:'siege',catapult:'siege'};
+export const CLASS_INFO={inf:{name:'پیاده',icon:'🗡️'},spear:{name:'نیزه‌دار',icon:'🔱'},archer:{name:'کماندار',icon:'🏹'},
+ cav:{name:'سواره',icon:'🐎'},siege:{name:'محاصره',icon:'💣'}};
+// COUNTER[مهاجم][مدافع] = ضریب قدرت مهاجم در برابر آن کلاس
+export const COUNTER={
+ inf:{inf:1,spear:1.5,archer:0.75,cav:1,siege:1.3},
+ spear:{inf:0.7,spear:1,archer:1,cav:1.6,siege:1.2},
+ archer:{inf:1.5,spear:1,archer:1,cav:0.65,siege:1},
+ cav:{inf:1,spear:0.6,archer:1.6,cav:1,siege:1.4},
+ siege:{inf:1.2,spear:1,archer:1,cav:0.7,siege:1}};
+
 // ---- buildings: all upgrade to level 30 ----
 export const BUILD_DEFS={
 keep:{name:'قلعه',icon:'🏰',max:30,baseTime:40},
@@ -54,7 +67,14 @@ ironmine:{name:'معدن آهن',icon:'⛓️',max:30,baseTime:35},
 goldmine:{name:'معدن طلا',icon:'🪙',max:30,baseTime:45},
 barracks:{name:'سربازخانه',icon:'⚔️',max:30,baseTime:50},
 muster:{name:'لشکر',icon:'🚩',max:30,baseTime:60},
-wall:{name:'دیوار',icon:'🧱',max:30,baseTime:45}};
+wall:{name:'دیوار',icon:'🧱',max:30,baseTime:45},
+hospital:{name:'بیمارستان',icon:'🏥',max:30,baseTime:50}};
+
+// ---- بیمارستان: ظرفیت مجروح، هزینه و زمان درمان ----
+export const WOUNDED_RATIO=0.55;   // سهم مجروح از تلفات (بقیه کشته)
+export const HEAL_COST_RATIO=0.35;  // هزینه درمان = ۳۵٪ هزینه ساخت
+export const HEAL_TIME_RATIO=0.25;  // زمان درمان = ۲۵٪ زمان ساخت
+export function hospitalCap(l){return l<=0?0:Math.floor(250*l*(1+l*0.1));}
 
 export function buildingProd(t,l){
   if(t==='farm')return{food:30*l};
@@ -75,8 +95,12 @@ export function upgradeTime(t,l){const d=BUILD_DEFS[t];return Math.ceil(d.baseTi
 export function speedCost(sec){return Math.max(1,Math.ceil(sec/60*2));}
 
 // ---- expedition (لشکر) ----
-export function expeditionCap(s){const m=s.buildings.find(b=>b.type==='muster')?.level||1;return 60+m*20;}
+export function expeditionCap(s){const m=s.buildings.find(b=>b.type==='muster')?.level||1;return 200+m*160;} // سطح ۳۰ = ۵۰۰۰ سرباز
 export function maxMarches(s){const m=s.buildings.find(b=>b.type==='muster')?.level||1;return 1+Math.floor(m/3);}
 export function marchSpeed(){return 3;} // tiles per second
 
 export const EXTRA_NAMES=['گرگ','شاهین','اژدها','پلنگ','عقاب','خرس','روباه','شیر','مار','گراز','کلاغ','ببر','کرم','سیاه‌پوش','آذرخش','بهشتی','سرداب','دریا','باد','باران','صخره','توفان','خنجر','سپر','نیزه','تاج','ستاره','ماه','خورشید','رعد'];
+
+// ---- NPC: رشد، جنگ بین خودشان، حمله به بازیکن ----
+export const NPC={buff:1.4,growCap:3.2,warEverySec:12,raidMinSec:150,raidMaxSec:330,firstRaidSec:240,raidSpeed:1.3,warSpeed:3,
+ respawnMinSec:45,respawnMaxSec:120,siteCooldownSec:480};
