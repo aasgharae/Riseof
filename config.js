@@ -7,8 +7,8 @@ export const BATCH_OPTIONS=[1,10,100,1000,10000];
 export const MAX_LEVEL=30;
 
 // ---- جهان بزرگ‌تر ----
-export const WORLD_W=400,WORLD_H=280;
-export const CASTLE_COUNT=300;
+export const WORLD_W=800,WORLD_H=560;
+export const CASTLE_COUNT=600;
 
 // ---- ۵ قبیله بزرگ NPC: هر کدام قلمرو، رنگ و نام خودشان را دارند ----
 export const FACTIONS=[
