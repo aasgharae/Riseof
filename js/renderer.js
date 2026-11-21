@@ -1,7 +1,8 @@
 import {WORLD_W, WORLD_H, BIOME, generateWorld} from './worldgen.js';
 import {makeRng, hash2} from './noise.js';
 import {drawCastle, drawTree, drawFlag} from './castles.js';
-import {K,drawPine,drawOak,drawBush,drawHill,drawMountain} from './scenery.js';
+import {K,drawPine,drawOak,drawBush,drawHill,drawMountain,drawCave,drawChest,drawRuins,drawSquad} from './scenery.js';
+import {SITE_KINDS,siteReady} from '../sites.js';
 import {FACTIONS} from '../config.js';
 import {armyPower} from '../combat.js';
 
@@ -81,6 +82,7 @@ export class Renderer{
     const scr=(wx,wy)=>[(wx-this.camX)*ppu+W/2,(wy-this.camY)*ppu+this.cv.height/2];
     const test=(x,y,s)=>{const[px,py]=scr(x,y);const dx=px2-px,dy=py2-py;s=Math.max(s,26);return dx*dx+dy*dy<s*s;};
     if(this.S.homePos&&test(this.S.homePos.x,this.S.homePos.y,ppu*1.6))return{kind:'home'};
+    for(const st of this.S.sites||[]){if(test(st.x,st.y,ppu*1.2))return{kind:'site',site:st};}
     for(const tr of this.S.tribes){if(test(tr.x,tr.y,ppu*1.5))return{kind:'tribe',tribe:tr};}
     return null;}
   _clampCam(){
@@ -226,6 +228,27 @@ export class Renderer{
     c.fillStyle='rgba(10,25,40,.08)';
     for(let i=0;i<6;i++){const ex=((i*733+this.t*14*(1+i%3*0.4))%(W+900))-450,ey=(i*421)%H;
       c.beginPath();c.ellipse(ex,ey,260+i*40,110+i*18,0,0,7);c.fill();}
+    // خط‌چین مسیر لشکرها: مال من (طلایی/سبز)، حمله دشمن به من (قرمز)، جنگ NPCها (کم‌رنگ)
+    const S0=this.S,dash=(x0,y0,x1,y1,col,w,al,on,off,doff)=>{const[a,b]=scr(x0,y0),[e,f]=scr(x1,y1);
+      c.save();c.globalAlpha=al;c.strokeStyle=col;c.lineWidth=w;c.setLineDash([on,off]);c.lineDashOffset=doff;c.lineCap='round';
+      c.beginPath();c.moveTo(a,b);c.lineTo(e,f);c.stroke();c.restore();};
+    if(S0){
+      for(const m of S0.npcMarches||[])dash(m.x0,m.y0,m.x1,m.y1,m.color,2.5,0.5,8,8,-this.t*40);
+      for(const m of S0.marches||[])dash(m.hx,m.hy,m.tx,m.ty,m.returning?'#6fd47a':'#ffd166',Math.max(3,ppu*0.1),0.9,13,9,-this.t*60*(m.returning?-1:1));
+      for(const r of S0.incoming||[])dash(r.fx,r.fy,S0.homePos.x,S0.homePos.y,'#ff4d4d',Math.max(4,ppu*0.13),0.6+0.35*Math.sin(this.t*7),13,9,-this.t*70);
+      // گنج‌ها و غارها
+      const now=Date.now();
+      for(const st of S0.sites||[]){
+        const[px,py]=scr(st.x,st.y);if(px<-100||px>W+100||py<-100||py>H+100)continue;
+        const ready=siteReady(st,now),sz=ppu*1.25;
+        c.save();if(!ready)c.globalAlpha=0.45;
+        if(sz>=18){
+          if(st.kind==='cave')drawCave(c,px,py,sz,this.t);else if(st.kind==='treasure')drawChest(c,px,py,sz,this.t);else drawRuins(c,px,py,sz,this.t);
+        }else{const r=Math.max(5,ppu*0.7);c.fillStyle='#7ee7ff';c.strokeStyle='#0b2b3a';c.lineWidth=2;
+          c.beginPath();c.moveTo(px,py-r);c.lineTo(px+r,py);c.lineTo(px,py+r);c.lineTo(px-r,py);c.closePath();c.fill();c.stroke();}
+        c.restore();
+        if(sz>=18&&this.zoom>=0.45)this._label2(c,SITE_KINDS[st.kind].icon+' '+st.name,ready?'⚔'+this._fmt(st.power)+' • Lv'+st.level:'💤 در حال بازسازی',px,py+sz*0.45,'#9be8ff',ppu);}
+    }
     // نام قلمروها وقتی دور هستیم
     if(this.zoom<0.55){
       c.textAlign='center';
@@ -278,6 +301,24 @@ export class Renderer{
       c.fillStyle='rgba(0,0,0,.3)';c.beginPath();c.ellipse(px,py+4,r*1.3,r*0.45,0,0,7);c.fill();
       c.fillStyle=m.returning?'#46a758':'#e5484d';c.beginPath();c.arc(px,py,r,0,7);c.fill();
       c.fillStyle='#fff';c.font=`bold ${Math.max(10,r*1.2)}px Vazirmatn`;c.textAlign='center';c.fillText(m.returning?'🏳':'⚔',px,py+r*0.4);}
+    // دسته‌های سرباز در حال حرکت
+    const squad=(x0,y0,x1,y1,prog,color,label,labelBg)=>{
+      const mx=x0+(x1-x0)*prog,my=y0+(y1-y0)*prog,[px,py]=scr(mx,my);
+      if(px<-80||px>W+80||py<-80||py>H+80)return;
+      if(ppu<6){c.fillStyle=color;c.strokeStyle='#000';c.lineWidth=1.5;c.beginPath();c.arc(px,py,6,0,7);c.fill();c.stroke();return;}
+      const sz=Math.max(26,ppu*1.15);
+      drawSquad(c,px,py,sz,color,x1-x0,this.t);
+      if(label&&this.zoom>=0.3){c.font='bold 12px Vazirmatn';const w=c.measureText(label).width+12;
+        c.fillStyle=labelBg;c.beginPath();c.roundRect(px-w/2,py+sz*0.3,w,18,9);c.fill();
+        c.fillStyle='#fff';c.textAlign='center';c.fillText(label,px,py+sz*0.3+13);}};
+    for(const m of this.S.npcMarches||[])squad(m.x0,m.y0,m.x1,m.y1,1-m.left/m.total,m.color,null,'rgba(0,0,0,.6)');
+    for(const m of this.S.marches||[]){const lab=(m.returning?'🏳 ':'⚔ ')+this._fmt(Object.values(m.army).reduce((a,b)=>a+b,0));
+      squad(m.hx,m.hy,m.tx,m.ty,1-m.travelLeft/m.travelTotal,m.returning?'#46a758':'#f2b84b',lab,m.returning?'rgba(30,110,50,.85)':'rgba(120,80,10,.85)');}
+    for(const r of this.S.incoming||[]){
+      squad(r.fx,r.fy,this.S.homePos.x,this.S.homePos.y,1-r.left/r.total,'#e5484d','⚠ '+this._fmt(Object.values(r.army).reduce((a,b)=>a+b,0))+' • '+Math.ceil(r.left)+'ث','rgba(150,20,20,.9)');}
+    if((this.S.incoming||[]).length&&this.S.homePos){
+      const[hx,hy]=scr(this.S.homePos.x,this.S.homePos.y),rr=Math.max(34,ppu*2.2)*(1+0.12*Math.sin(this.t*6));
+      c.strokeStyle='rgba(255,70,70,.8)';c.lineWidth=4;c.beginPath();c.arc(hx,hy-ppu*0.3,rr,0,7);c.stroke();}
     this._drawMini(c,W,H);
     this._vignette(c,W,H);
     c.fillStyle='rgba(255,245,220,.75)';c.font='12px Vazirmatn';c.textAlign='center';
@@ -363,6 +404,16 @@ export function drawBuilding(c,type,px,py,s,level,t){
       c.fillStyle=roof;c.beginPath();c.moveTo(tx-s*0.24,ty-s*0.72);c.lineTo(tx,ty-s*1.15);c.lineTo(tx+s*0.24,ty-s*0.72);c.closePath();c.fill();
       c.fillStyle=roofD;c.beginPath();c.moveTo(tx,ty-s*1.15);c.lineTo(tx+s*0.24,ty-s*0.72);c.lineTo(tx+s*0.06,ty-s*0.72);c.closePath();c.fill();}
     drawFlag(c,px,py-th-hgt*0.3-cw*0.8,s*0.5,s*0.6,'#e5484d',t);
+    pips();return;}
+  if(type==='hospital'){
+    const w=s*1.15,h=s*0.8;
+    c.fillStyle='#f3efe4';c.fillRect(px-w/2,py-h,w,h);c.fillStyle=wallS;c.fillRect(px+w*0.1,py-h,w*0.4,h);
+    c.fillStyle='#6f87a6';c.beginPath();c.moveTo(px-w*0.6,py-h);c.lineTo(px,py-h-s*0.42);c.lineTo(px+w*0.6,py-h);c.closePath();c.fill();
+    c.fillStyle='rgba(0,0,0,.18)';c.beginPath();c.moveTo(px,py-h-s*0.42);c.lineTo(px+w*0.6,py-h);c.lineTo(px+w*0.1,py-h);c.closePath();c.fill();
+    c.fillStyle='#d83b3b';const cx=px,cy=py-h*0.62,a=s*0.34,b=s*0.1;c.fillRect(cx-a/2,cy-b/2,a,b);c.fillRect(cx-b/2,cy-a/2,b,a);
+    c.fillStyle='#5b8fb5';c.fillRect(px-w*0.38,py-h*0.35,w*0.18,w*0.18);c.fillRect(px+w*0.2,py-h*0.35,w*0.18,w*0.18);
+    c.fillStyle='#4a3524';c.beginPath();c.roundRect(px-w*0.09,py-h*0.3,w*0.18,h*0.3,3);c.fill();
+    drawFlag(c,px+w*0.5,py-h-s*0.1,s*0.3,s*0.4,'#ffffff',t);
     pips();return;}
   if(type==='muster'){
     c.fillStyle='rgba(140,115,75,.4)';c.beginPath();c.roundRect(px-s*0.8,py-s*0.55,s*1.6,s*0.85,s*0.12);c.fill();
