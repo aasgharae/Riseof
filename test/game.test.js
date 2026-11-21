@@ -4,6 +4,7 @@ import {START_RESOURCES,FACTIONS,factionAt,tribeLevelAt,WORLD_W,WORLD_H,CASTLE_C
 import {freshState,storageCap} from '../state.js';
 import {armyPower,armyCount,resolveAttack,genGarrison} from '../combat.js';
 import {makeRng} from '../js/noise.js';
+import {rankBoard,factionBoard,npcTick} from '../leaderboard.js';
 import {generateWorld,placeCastles,findHome,BIOME} from '../js/worldgen.js';
 
 test('huge starting stock fits the warehouse',()=>{
@@ -32,7 +33,8 @@ test('royal/knight buff applies without crashing and catapult melts walls',()=>{
 test('world is big and castles fit inside it',()=>{
  const terr=generateWorld(1337);
  assert.equal(terr.length,WORLD_W*WORLD_H);
- assert.ok(WORLD_W>=400&&WORLD_H>=280);
+ assert.ok(WORLD_W>=800&&WORLD_H>=560);
+ assert.equal(terr.ground.length,WORLD_W*WORLD_H);
  const spots=placeCastles(terr,CASTLE_COUNT,555);
  assert.equal(spots.length,CASTLE_COUNT);
  for(const s of spots){
@@ -56,4 +58,19 @@ test('army helpers count correctly',()=>{
  const a={swordsman:10,archer:5};
  assert.equal(armyCount(a),15);
  assert.equal(armyPower(a),10*TROOPS.swordsman.power+5*TROOPS.archer.power);
+});
+
+test('leaderboard ranks power and kills, player included',()=>{
+ const S={buildings:[{type:'keep',level:3}],troops:{swordsman:1000},kills:500,factionKills:{},
+  tribes:[{id:'a',name:'A',power:5000,kills:100,level:5,faction:'wolf',garrison:{spearman:10}},
+          {id:'b',name:'B',power:20000,kills:900,level:9,faction:'wolf',garrison:{spearman:10}}]};
+ const p=rankBoard(S,'power');
+ assert.equal(p[0].id,'b');assert.equal(p.find(e=>e.me).rank,2);
+ const k=rankBoard(S,'kills');
+ assert.equal(k[0].id,'b');assert.equal(k.find(e=>e.me).rank,2);
+ const before=S.tribes.reduce((a,t)=>a+t.kills,0);
+ npcTick(S,()=>0.5,10);
+ assert.ok(S.tribes.reduce((a,t)=>a+t.kills,0)>before);
+ const fb=factionBoard(S,FACTIONS);
+ assert.equal(fb.find(f=>f.id==='wolf').castles,2);
 });
