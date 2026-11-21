@@ -5,7 +5,7 @@ export function makeNoise(seed){
   const rng=makeRng(seed);const P=256;const perm=new Uint8Array(P*2);const vals=new Float32Array(P);
   const p=[...Array(P).keys()];
   for(let i=P-1;i>0;i--){const j=(rng()*(i+1))|0;const t=p[i];p[i]=p[j];p[j]=t;}
-  for(let i=0;i<P*2;i++)perm[i]=p[i&P];
+  for(let i=0;i<P*2;i++)perm[i]=p[i&(P-1)];
   for(let i=0;i<P;i++)vals[i]=rng();
   const g=(x,y)=>vals[perm[(perm[x&255]+y)&255]];
   const sm=t=>t*t*(3-2*t);
