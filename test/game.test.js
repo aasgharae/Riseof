@@ -96,9 +96,9 @@ test('counters: spear beats cavalry, cavalry beats archers, archers beat infantr
  assert.ok(bestCounters({cavalry:50})[0].cls==='spear');
  assert.ok(troopMultVs('archer',{swordsman:10})>1.4);
 });
-test('expedition cap reaches 5000 at muster level 30',()=>{
- assert.equal(expeditionCap({buildings:[{type:'muster',level:30}]}),5000);
- assert.ok(expeditionCap({buildings:[{type:'muster',level:1}]})>=300);
+test('expedition cap reaches 30000 at muster level 30',()=>{
+ assert.equal(expeditionCap({buildings:[{type:'muster',level:30}]}),30000);
+ assert.ok(expeditionCap({buildings:[{type:'muster',level:1}]})>=1000);
 });
 test('hospital keeps wounded up to capacity, rest die; healing is cheaper than training',()=>{
  const S={buildings:[{type:'hospital',level:1}],wounded:{},healing:[]};
