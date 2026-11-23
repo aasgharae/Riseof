@@ -25,10 +25,10 @@ const cv=$('cv'),R=new Renderer(cv);R.setState(S);
       const dRatio=Math.hypot(sp.x-home.x,sp.y-home.y)/maxDist;
       const level=Math.max(1,Math.min(30,tribeLevelAt(dRatio)+Math.floor(rng()*5)-2));
       return buildTribe('t'+i,'قلعه '+EXTRA_NAMES[i%EXTRA_NAMES.length]+' '+(Math.floor(i/EXTRA_NAMES.length)+1),sp.x,sp.y,level,rng,NPC.buff);});
-    S.buffed=true;
+    S.buffed=true;S.buffVer=2;
     addLog(S,'info','🌍 جهان جدید ساخته شد: '+S.tribes.length+' قلعه در '+FACTIONS.length+' قلمرو');
   }
-  if(!S.buffed){for(const t of S.tribes){scaleTribe(t,NPC.buff);t.base=t.power;}S.buffed=true;}
+  if((S.buffVer||0)<2){const k=S.buffed?NPC.buff/1.4:NPC.buff;for(const t of S.tribes){scaleTribe(t,k);t.base=t.power;}S.buffed=true;S.buffVer=2;}
   for(const t of S.tribes)if(!t.base)t.base=t.power;
   if(!S.sites||!S.sites.length){S.sites=genSites(terr,S.tribes,S.homePos,makeRng(777),30);
     addLog(S,'info','💎 '+S.sites.length+' گنج و غار در قلب نقشه کشف شد');}
@@ -264,7 +264,7 @@ if(cur==='train'){
   h+='<div class="q" style="justify-content:center;text-align:center">🔄 چرخه تقابل: 🗡️ پیاده ▶ 🔱 نیزه‌دار ▶ 🐎 سواره ▶ 🏹 کماندار ▶ 🗡️ پیاده • 💣 محاصره دیوار را می‌شکند</div>';
   h+='<div class="seg">'+bars.map((id,i)=>{const L=S.buildings.find(b=>b.id===id)?.level||1,q=S.training[id].length;
     return '<button class="'+(id===trainBar?'on':'')+'" onclick="setTrainBar(\''+id+'\')">🏰 سربازخانه '+(i+1)+' • Lv'+L+(q?' • ⏳'+q:'')+'</button>';}).join('')+'</div>';
-  h+='<div class="seg"><span class="q" style="margin:0 4px">تعداد:</span>'+[1,10,100,1000,5000].map(n=>'<button class="'+(trainQty===n?'on':'')+'" onclick="setTrainQty('+n+')">'+fmt(n)+'</button>').join('')
+  h+='<div class="seg"><span class="q" style="margin:0 4px">تعداد:</span>'+[1,10,100,1000,5000,10000].map(n=>'<button class="'+(trainQty===n?'on':'')+'" onclick="setTrainQty('+n+')">'+fmt(n)+'</button>').join('')
     +'<input class="qin" type="number" min="1" value="'+trainQty+'" onchange="setTrainQty(this.value)"></div>';
   h+='<div class="seg">'+[['all','همه']].concat(Object.entries(CLASS_INFO).map(([k,v])=>[k,v.icon+' '+v.name])).map(([k,l])=>'<button class="'+(trainCls===k?'on':'')+'" onclick="setTrainCls(\''+k+'\')">'+l+'</button>').join('')+'</div>';
   const ql=S.training[trainBar];
@@ -428,6 +428,7 @@ R.onTap=(hit)=>{
   if(hit.kind==='minimap'){R.centerOn(hit.wx,hit.wy);R.hl=null;return;}
   if(hit.kind==='tribe'){openDetail(hit.tribe.id);}
   if(hit.kind==='site'){openDetail(hit.site.id);}
+  if(hit.kind==='building'){const t=hit.b.type;openSheet(t==='barracks'?'train':t==='hospital'?'hospital':t==='muster'?'attack':'build');}
   if(hit.kind==='home'){R.setView('castle');$('tabCastle').classList.add('on');$('tabWorld').classList.remove('on');}};
 $('tabWorld').onclick=()=>{R.setView('world');$('tabWorld').classList.add('on');$('tabCastle').classList.remove('on');};
 $('tabCastle').onclick=()=>{R.setView('castle');$('tabCastle').classList.add('on');$('tabWorld').classList.remove('on');};

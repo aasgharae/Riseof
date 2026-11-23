@@ -9,7 +9,7 @@ export function genGarrison(level,rng){
   const nTypes=Math.min(avail.length,2+Math.floor(rng()*3));
   const pool=[...avail],picks=[];
   while(picks.length<nTypes)picks.push(pool.splice(Math.floor(rng()*pool.length),1)[0]);
-  let remaining=Math.floor(150*Math.pow(level,1.6)*(0.9+rng()*0.25));
+  let remaining=Math.floor(150*Math.pow(level,1.75)*(0.9+rng()*0.25));
   const g={};
   picks.forEach((t,i)=>{
     const last=i===picks.length-1;

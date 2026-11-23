@@ -95,12 +95,12 @@ export function upgradeTime(t,l){const d=BUILD_DEFS[t];return Math.ceil(d.baseTi
 export function speedCost(sec){return Math.max(1,Math.ceil(sec/60*2));}
 
 // ---- expedition (لشکر) ----
-export function expeditionCap(s){const m=s.buildings.find(b=>b.type==='muster')?.level||1;return 200+m*160;} // سطح ۳۰ = ۵۰۰۰ سرباز
+export function expeditionCap(s){const m=s.buildings.find(b=>b.type==='muster')?.level||1;return m*1000;} // سطح ۳۰ = ۳۰٬۰۰۰ سرباز
 export function maxMarches(s){const m=s.buildings.find(b=>b.type==='muster')?.level||1;return 1+Math.floor(m/3);}
 export function marchSpeed(){return 3;} // tiles per second
 
 export const EXTRA_NAMES=['گرگ','شاهین','اژدها','پلنگ','عقاب','خرس','روباه','شیر','مار','گراز','کلاغ','ببر','کرم','سیاه‌پوش','آذرخش','بهشتی','سرداب','دریا','باد','باران','صخره','توفان','خنجر','سپر','نیزه','تاج','ستاره','ماه','خورشید','رعد'];
 
 // ---- NPC: رشد، جنگ بین خودشان، حمله به بازیکن ----
-export const NPC={buff:1.4,growCap:3.2,warEverySec:12,raidMinSec:150,raidMaxSec:330,firstRaidSec:240,raidSpeed:1.3,warSpeed:3,
+export const NPC={buff:2.6,growCap:4.5,growStep:1.018,warEverySec:12,raidMinSec:150,raidMaxSec:330,firstRaidSec:240,raidSpeed:1.3,warSpeed:3,
  respawnMinSec:45,respawnMaxSec:120,siteCooldownSec:480};

@@ -25,7 +25,7 @@ export function buildTribe(id,name,x,y,level,rng,buff=1){
 export function queueRespawn(S,old,now,rng){
   S.respawns=S.respawns||[];
   S.respawns.push({x:old.x,y:old.y,level:Math.min(30,old.level+1+((rng()*2)|0)),
-    minPower:Math.max(old.base||0,old.power)*(1.25+rng()*0.35),
+    minPower:Math.max(old.base||0,old.power)*(1.35+rng()*0.5),
     at:now+(NPC.respawnMinSec+rng()*(NPC.respawnMaxSec-NPC.respawnMinSec))*1000});}
 export function processRespawns(S,now,rng){
   const due=(S.respawns||[]).filter(r=>r.at<=now);if(!due.length)return[];
@@ -40,7 +40,7 @@ export function processRespawns(S,now,rng){
 export function npcGrow(S,rng,n=40){
   const L=S.tribes.length;if(!L)return;
   for(let i=0;i<n;i++){const t=S.tribes[(rng()*L)|0];
-    if(t.power<(t.base||t.power)*NPC.growCap)scaleTribe(t,1.012);}}
+    if(t.power<(t.base||t.power)*NPC.growCap)scaleTribe(t,NPC.growStep);}}
 
 // ---- جنگ NPCها با هم ----
 export function startWar(S,rng){
