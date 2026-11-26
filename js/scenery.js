@@ -125,3 +125,43 @@ export function drawSquad(c,x,y,s,color,dirx,t){
     c.fillStyle='rgba(255,255,255,.85)';c.beginPath();c.arc(px-f*u*0.2,py-u*0.34,u*0.13,0,7);c.fill();
     c.strokeStyle=color;c.lineWidth=Math.max(1,u*0.05);c.stroke();}
 }
+
+// ---------- کمپ نظامی ----------
+export function drawCamp(c,x,y,s,t,col){
+  shadow(c,x,y+s*0.05,s*1.1,s*0.22);
+  c.fillStyle='rgba(120,95,60,.55)';c.beginPath();c.ellipse(x,y,s*1.0,s*0.3,0,0,7);c.fill();
+  const tent=(tx,w,h,cl)=>{poly(c,[tx-w,y,tx,y-h,tx+w,y],cl);poly(c,[tx,y-h,tx+w,y,tx+w*0.25,y],'rgba(0,0,0,.22)');poly(c,[tx-w*0.18,y,tx,y-h*0.5,tx+w*0.18,y],'#2a1c10');};
+  tent(x-s*0.45,s*0.4,s*0.55,'#d8c9a0');tent(x+s*0.4,s*0.34,s*0.46,col||'#a8342f');
+  c.strokeStyle='#4a3524';c.lineWidth=Math.max(1.5,s*0.05);c.beginPath();c.moveTo(x,y+s*0.05);c.lineTo(x,y-s*1.05);c.stroke();
+  poly(c,[x,y-s*1.05,x+s*0.5,y-s*0.92+Math.sin(t*6)*s*0.04,x,y-s*0.72],col||'#e5484d');
+  const fx=x-s*0.05,fy=y+s*0.22,f=0.7+0.3*Math.sin(t*10);
+  c.fillStyle='#5d4126';c.fillRect(fx-s*0.15,fy,s*0.3,s*0.05);
+  c.fillStyle='rgba(255,170,60,'+f+')';c.beginPath();c.moveTo(fx-s*0.08,fy);c.quadraticCurveTo(fx,fy-s*0.3*f,fx+s*0.08,fy);c.fill();
+  c.fillStyle='rgba(255,230,140,.9)';c.beginPath();c.moveTo(fx-s*0.04,fy);c.quadraticCurveTo(fx,fy-s*0.16*f,fx+s*0.04,fy);c.fill();
+}
+// ---------- غول سنگی آخر فصل ----------
+export function drawGiant(c,x,y,s,t){
+  const br=Math.sin(t*1.6)*s*0.02,lv=0.55+0.45*Math.sin(t*3);
+  const g=c.createRadialGradient(x,y-s*1.5,s*0.3,x,y-s*1.5,s*3);g.addColorStop(0,'rgba(255,90,40,'+(0.28*lv)+')');g.addColorStop(1,'rgba(255,90,40,0)');
+  c.fillStyle=g;c.beginPath();c.arc(x,y-s*1.5,s*3,0,7);c.fill();
+  c.fillStyle='rgba(0,0,0,.35)';c.beginPath();c.ellipse(x,y+s*0.05,s*1.5,s*0.3,0,0,7);c.fill();
+  // پاها
+  for(const dx of[-0.5,0.5]){poly(c,[x+s*dx-s*0.34,y,x+s*dx-s*0.28,y-s*0.9,x+s*dx+s*0.28,y-s*0.9,x+s*dx+s*0.34,y],'#6d655a');poly(c,[x+s*dx,y-s*0.9,x+s*dx+s*0.28,y-s*0.9,x+s*dx+s*0.34,y,x+s*dx+s*0.05,y],'#4c453c');}
+  // تنه
+  poly(c,[x-s*0.95,y-s*0.85+br,x-s*0.7,y-s*2.2+br,x+s*0.7,y-s*2.2+br,x+s*0.95,y-s*0.85+br],'#7d756a');
+  poly(c,[x,y-s*2.2+br,x+s*0.7,y-s*2.2+br,x+s*0.95,y-s*0.85+br,x+s*0.1,y-s*0.85+br],'rgba(0,0,0,.25)');
+  c.strokeStyle='rgba(255,120,40,'+(0.55+0.45*lv)+')';c.lineWidth=Math.max(2,s*0.05);c.lineJoin='round';
+  c.beginPath();c.moveTo(x-s*0.4,y-s*2.0+br);c.lineTo(x-s*0.2,y-s*1.5+br);c.lineTo(x-s*0.45,y-s*1.2+br);c.moveTo(x+s*0.3,y-s*2.0+br);c.lineTo(x+s*0.15,y-s*1.55+br);c.lineTo(x+s*0.4,y-s*1.1+br);c.stroke();
+  c.fillStyle='#5d7a4a';c.beginPath();c.ellipse(x-s*0.5,y-s*2.1+br,s*0.3,s*0.08,0,0,7);c.fill();
+  // بازوها و گرز
+  poly(c,[x-s*0.7,y-s*2.1+br,x-s*1.25,y-s*1.3,x-s*1.05,y-s*0.7,x-s*0.8,y-s*1.3],'#6d655a');
+  const sw=Math.sin(t*1.6)*0.12;c.save();c.translate(x+s*0.75,y-s*2.0+br);c.rotate(-0.5+sw);
+  poly(c,[0,0,s*0.5,s*0.1,s*0.55,s*0.45,s*0.1,s*0.4],'#6d655a');
+  c.fillStyle='#5d4126';c.fillRect(s*0.3,-s*1.7,s*0.14,s*1.9);c.fillStyle='#4c453c';c.beginPath();c.arc(s*0.37,-s*1.85,s*0.34,0,7);c.fill();
+  c.fillStyle='#8a8278';c.beginPath();c.arc(s*0.32,-s*1.9,s*0.2,0,7);c.fill();c.restore();
+  // سر
+  poly(c,[x-s*0.38,y-s*2.2+br,x-s*0.32,y-s*2.85+br,x+s*0.32,y-s*2.85+br,x+s*0.38,y-s*2.2+br],'#837b70');
+  poly(c,[x-s*0.32,y-s*2.85+br,x-s*0.5,y-s*3.25+br,x-s*0.15,y-s*2.9+br],'#e8dfc8');poly(c,[x+s*0.32,y-s*2.85+br,x+s*0.5,y-s*3.25+br,x+s*0.15,y-s*2.9+br],'#e8dfc8');
+  c.fillStyle='rgba(255,'+(110+lv*80|0)+',40,1)';c.beginPath();c.arc(x-s*0.15,y-s*2.6+br,s*0.07,0,7);c.arc(x+s*0.15,y-s*2.6+br,s*0.07,0,7);c.fill();
+  c.fillStyle='#1a1410';c.fillRect(x-s*0.17,y-s*2.4+br,s*0.34,s*0.07);
+}

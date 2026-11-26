@@ -1,9 +1,10 @@
 import {WORLD_W, WORLD_H, BIOME, generateWorld} from './worldgen.js';
 import {makeRng, hash2} from './noise.js';
 import {drawCastle, drawTree, drawFlag} from './castles.js';
-import {K,drawPine,drawOak,drawBush,drawHill,drawMountain,drawCave,drawChest,drawRuins,drawSquad} from './scenery.js';
+import {K,drawPine,drawOak,drawBush,drawHill,drawMountain,drawCave,drawChest,drawRuins,drawSquad,drawCamp,drawGiant} from './scenery.js';
 import {SITE_KINDS,siteReady} from '../sites.js';
 import {CastleScene} from './castleview.js';
+import {BOSS_POS} from '../config.js';
 export {drawBuilding} from './buildings.js';
 import {FACTIONS} from '../config.js';
 import {armyPower} from '../combat.js';
@@ -88,8 +89,11 @@ export class Renderer{
     const scr=(wx,wy)=>[(wx-this.camX)*ppu+W/2,(wy-this.camY)*ppu+this.cv.height/2];
     const test=(x,y,s)=>{const[px,py]=scr(x,y);const dx=px2-px,dy=py2-py;s=Math.max(s,26);return dx*dx+dy*dy<s*s;};
     if(this.S.homePos&&test(this.S.homePos.x,this.S.homePos.y,ppu*1.6))return{kind:'home'};
+    if(this.bossOn&&test(BOSS_POS.x,BOSS_POS.y-ppu*1.5,ppu*3))return{kind:'boss'};
+    for(const k of this.S.camps||[]){if(test(k.x,k.y,ppu*1.2))return{kind:'camp',camp:k};}
     for(const st of this.S.sites||[]){if(test(st.x,st.y,ppu*1.2))return{kind:'site',site:st};}
     for(const tr of this.S.tribes){if(test(tr.x,tr.y,ppu*1.5))return{kind:'tribe',tribe:tr};}
+    if(this.campMode)return{kind:'empty',wx:this.camX+(px2-W/2)/ppu,wy:this.camY+(py2-this.cv.height/2)/ppu};
     return null;}
   _clampCam(){
     const hw=this.cv.width/2/this._ppu()/this.zoom, hh=this.cv.height/2/this._ppu()/this.zoom;
@@ -255,6 +259,19 @@ export class Renderer{
         c.restore();
         if(sz>=18&&this.zoom>=0.45)this._label2(c,SITE_KINDS[st.kind].icon+' '+st.name,ready?'⚔'+this._fmt(st.power)+' • Lv'+st.level:'💤 در حال بازسازی',px,py+sz*0.45,'#9be8ff',ppu);}
     }
+    // کمپ‌ها و غول آخر فصل
+    if(S0){
+      for(const k of S0.camps||[]){const[px,py]=scr(k.x,k.y);if(px<-120||px>W+120||py<-120||py>H+120)continue;
+        const sz=Math.max(14,ppu*1.3);
+        if(ppu*1.3>=14){drawCamp(c,px,py,sz,this.t,'#3f8bd6');
+          if(this.zoom>=0.4)this._label2(c,'⛺ کمپ '+(k.cmdIcon||''),'👥'+this._fmt(Object.values(k.army).reduce((a,b)=>a+b,0)),px,py+sz*0.4,'#9bd0ff',ppu);}
+        else{c.fillStyle='#3f8bd6';c.strokeStyle='#000';c.lineWidth=1.5;c.beginPath();c.moveTo(px,py-7);c.lineTo(px+7,py+5);c.lineTo(px-7,py+5);c.closePath();c.fill();c.stroke();}}
+      if(this.bossOn){const[px,py]=scr(BOSS_POS.x,BOSS_POS.y);
+        if(px>-300&&px<W+300&&py>-300&&py<H+300){
+          if(ppu>=8){const sz=Math.max(40,ppu*2.2);drawGiant(c,px,py,sz,this.t);
+            if(this.zoom>=0.3)this._label2(c,'🗿 غول آخر فصل','نامیرا • ضربه بزن، امتیاز بگیر',px,py+sz*0.45,'#ff9d5c',ppu);}
+          else{c.fillStyle='#ff5a28';c.strokeStyle='#000';c.lineWidth=2;c.beginPath();c.arc(px,py,10,0,7);c.fill();c.stroke();c.font='bold 13px Vazirmatn';c.textAlign='center';c.fillStyle='#fff';c.fillText('☠',px,py+5);}}}
+    }
     // نام قلمروها وقتی دور هستیم
     if(this.zoom<0.55){
       c.textAlign='center';
@@ -350,6 +367,8 @@ export class Renderer{
       for(const tr of this.S.tribes){
         c.fillStyle=tr.color||'#e5484d';
         c.fillRect(mr.x+tr.x/WORLD_W*mr.w-1,mr.y+tr.y/WORLD_H*mr.h-1,2.5,2.5);}
+      for(const k of this.S.camps||[]){c.fillStyle='#3f8bd6';c.fillRect(mr.x+k.x/WORLD_W*mr.w-3,mr.y+k.y/WORLD_H*mr.h-3,6,6);}
+      if(this.bossOn){c.fillStyle='#ff5a28';c.strokeStyle='#000';c.lineWidth=1;c.beginPath();c.arc(mr.x+BOSS_POS.x/WORLD_W*mr.w,mr.y+BOSS_POS.y/WORLD_H*mr.h,5,0,7);c.fill();c.stroke();}
       if(this.S.homePos){
         const hx=mr.x+this.S.homePos.x/WORLD_W*mr.w, hy=mr.y+this.S.homePos.y/WORLD_H*mr.h;
         c.fillStyle='#ffd166';c.beginPath();c.arc(hx,hy,4,0,7);c.fill();
