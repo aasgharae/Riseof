@@ -153,3 +153,84 @@ test('daily/weekly quests progress from stats and pay out once',()=>{
  assert.ok(claimQuest(S,'daily',0));assert.equal(claimQuest(S,'daily',0),null);assert.ok(S.resources.gold>0);
  assert.equal(ensureQuests(S,Date.UTC(2026,10,21,12)).daily[0].claimed,true);   // همان روز تغییر نمی‌کند
 });
+
+// ---------- v5: جاسوس، فرمانده، انرژی، فصل و غول، کمپ ----------
+import {COMMANDERS,ensureCmd,grantTokens,unlockCmd,upgradeCmd,cmdFx,busyCmds,freeCmds,battleMods,energyCost,armyCap,homeFx} from '../commanders.js';
+import {runSpy,getIntel,estPower,enemySpyStrength} from '../spy.js';
+import {ensureEnergy,spendEnergy} from '../energy.js';
+import {ensureSeason,bossPhase,weaknessAt,bossHit,bossBoard,rewardFor,finalizeSeason,newSeason} from '../season.js';
+import {campSpotError,campAmbush,campMods} from '../camps.js';
+import {BIOME as BM} from '../js/worldgen.js';
+
+const mkS=()=>({buildings:[{type:'keep',level:1},{type:'muster',level:1}],troops:{},resources:{gold:0,food:0,wood:0,iron:0,stone:0},marches:[],camps:[],intel:{},kills:0,
+ tribes:[],incoming:[],npcMarches:[],homePos:{x:100,y:100},cmd:{tokens:1,unlocked:[],levels:{},emblems:0,granted:[]}});
+test('ten commanders; 1 starting token + tokens at keep level 10, 20, 30; max 4 unlocked',()=>{
+ assert.equal(COMMANDERS.length,10);assert.equal(new Set(COMMANDERS.map(c=>c.id)).size,10);
+ const S=mkS();assert.ok(unlockCmd(S,'rostam'));assert.ok(!unlockCmd(S,'arash'));   // توکن تمام شد
+ S.buildings[0].level=10;assert.deepEqual(grantTokens(S),[10]);assert.deepEqual(grantTokens(S),[]);
+ assert.ok(unlockCmd(S,'arash'));S.buildings[0].level=30;assert.deepEqual(grantTokens(S),[20,30]);
+ assert.ok(unlockCmd(S,'kaveh'));assert.ok(unlockCmd(S,'qarun'));
+ S.cmd.tokens=5;assert.ok(!unlockCmd(S,'mehrab'));assert.equal(S.cmd.unlocked.length,4);
+});
+test('commander effects scale with level via limited emblems; busy commanders are tracked',()=>{
+ const S=mkS();unlockCmd(S,'tahmineh');
+ const f1=cmdFx(S,'tahmineh');S.cmd.emblems=3;assert.ok(upgradeCmd(S,'tahmineh'));assert.ok(cmdFx(S,'tahmineh').speed>f1.speed);
+ S.cmd.emblems=0;assert.ok(!upgradeCmd(S,'tahmineh'));
+ assert.deepEqual(freeCmds(S),['tahmineh']);S.marches.push({cmd:'tahmineh'});assert.equal(busyCmds(S).has('tahmineh'),true);assert.deepEqual(freeCmds(S),[]);
+ const m=battleMods(cmdFx(S,'tahmineh'));assert.ok(m.cls.cav>1);
+ assert.equal(energyCost(mkS(),null),5);
+ const S2=mkS();unlockCmd(S2,'bahram');assert.equal(energyCost(S2,'bahram'),4);
+ const S3=mkS();unlockCmd(S3,'mehrab');assert.ok(armyCap(S3,10000,'mehrab')>10000);
+});
+test('commander changes battle outcome (archer commander + walls)',()=>{
+ const S=mkS();unlockCmd(S,'arash');
+ const army={archer:100},def={army:{swordsman:50},power:1700};
+ const base=battle(army,def,10,15),boost=battle(army,def,10,15,battleMods(cmdFx(S,'arash')));
+ assert.ok(boost.atk>base.atk&&boost.def<base.def);
+ const g=battle({spearman:100},{army:{cavalry:10},power:300},0,0,{lossMul:0.5});assert.ok(g.aLoss<0.3);
+});
+test('spies: fewer/weaker spies fail and die, stronger succeed and reveal intel; intel expires',()=>{
+ const rng=mkRng(1),S=mkS(),t={id:'t9',name:'X',level:10,power:5000,wall:3,garrison:{archer:50},loot:{gold:5},spies:30};
+ const weak=runSpy(S,t,10,0,rng,1000);assert.ok(!weak.ok&&weak.lost>=6&&!getIntel(S,'t9',1000));
+ const strong=runSpy(S,t,Math.ceil(enemySpyStrength(t))+5,0,rng,1000);assert.ok(strong.ok&&strong.intel.garrison.archer===50);
+ assert.ok(getIntel(S,'t9',1000+60*1000));assert.equal(getIntel(S,'t9',1000+700*1000),null);
+ assert.ok(runSpy(S,t,20,1.0,rng,2000).ok);                       // بونوس وزیر: ۲۰ جاسوس کافی است
+ const site={...t,id:'s1',kind:'cave',item:true},r=runSpy(S,site,40,1.0,rng,3000);assert.equal(r.intel.aura,true); // وزیر بی‌خطا می‌بیند
+ assert.ok(estPower(t)>0);
+});
+test('daily energy: 100 units, 5 per move, resets next day',()=>{
+ const S=mkS(),d=Date.UTC(2026,10,25,9);ensureEnergy(S,d);
+ for(let i=0;i<20;i++)assert.ok(spendEnergy(S,5,d));assert.ok(!spendEnergy(S,5,d));
+ assert.equal(ensureEnergy(S,d+864e5).v,100);
+});
+test('season: boss only in last 48h, weakness rotates every 6h, board and rewards work',()=>{
+ const S=mkS(),t0=Date.UTC(2026,10,1);S.cmd.emblems=0;
+ S.tribes=[{id:'a',name:'A',color:'#f00',power:100000},{id:'b',name:'B',color:'#0f0',power:20000}];
+ assert.deepEqual(ensureSeason(S,t0),[]);assert.equal(bossPhase(S,t0+10*864e5),'before');
+ const bs=S.season.bossStart;assert.ok(S.season.end-bs===48*36e5);
+ assert.equal(ensureSeason(S,bs+1)[0].type,'spawn');assert.equal(bossPhase(S,bs+1),'active');
+ const w0=weaknessAt(S,bs+1),w1=weaknessAt(S,bs+6*36e5+1);assert.notEqual(w0.weak,w1.weak);assert.ok(w0.nextIn<=6*36e5);
+ const cavArmy={cavalry:1000},spearArmy={spearman:1000};
+ const hitCav=(w)=>bossHit(S,cavArmy,{}, w==='cav'?bs+1:bs+6*36e5+1);   // سواره: ضعف غول در ساعت اول
+ assert.ok(hitCav('cav').mult>1.5);assert.ok(bossHit(S,spearArmy,{},bs+1).mult<=1);
+ assert.ok(bossHit(S,cavArmy,{boss:0.3},bs+1).damage>bossHit(S,cavArmy,{},bs+1).damage);
+ assert.ok(bossHit(S,cavArmy,{},bs+1).lossFrac>=0.12);
+ S.boss.dmg=5e6;S.boss.hits=10;
+ const board=bossBoard(S,S.season.end-1);assert.ok(board.find(r=>r.me));assert.equal(board[0].rank,1);
+ assert.equal(rewardFor(1,600).emblems,4);assert.ok(rewardFor(400,600).gold<rewardFor(5,600).gold);
+ const ev=ensureSeason(S,S.season.end+1);assert.equal(ev[0].type,'end');assert.equal(S.season.id,2);assert.equal(S.boss,null);
+ assert.ok(S.pastSeasons[0].rank>=1&&S.resources.gold>0);
+});
+test('camps: valid spot rules and ambush stops a raid heading home',()=>{
+ const terr=generateWorld(1337),S=mkS();S.homePos={x:WORLD_W/2-40,y:WORLD_H/2};
+ let land=null;for(let x=300;x<500&&!land;x++)if(terr[Math.floor(WORLD_H/2)*WORLD_W+x]>=BM.GRASS)land={x,y:WORLD_H/2};
+ assert.equal(campSpotError(S,terr,land.x,land.y),null);assert.ok(campSpotError(S,terr,3,3));
+ S.tribes=[{id:'x',x:land.x+2,y:land.y,level:1,power:100,garrison:{swordsman:3}}];assert.ok(campSpotError(S,terr,land.x,land.y));
+ S.tribes=[];
+ const camp={id:'c1',x:land.x,y:land.y,army:{swordsman:3000},cmd:null};S.camps=[camp];
+ S.homePos={x:land.x+40,y:land.y};
+ const raid={id:'r',from:'x',fx:land.x-40,fy:land.y,army:{swordsman:20},power:240,left:50,total:100};S.incoming=[raid]; // وسط راه = موقعیت کمپ
+ const out=campAmbush(S);assert.equal(out.length,1);assert.ok(out[0].win);assert.equal(S.incoming.length,0);
+ assert.equal(campAmbush(S).length,0);   // هر لشکر فقط یک‌بار کمین می‌شود
+ assert.ok(campMods(S,camp).atk>1&&campMods(S,camp).wallIgnore>0);
+});
