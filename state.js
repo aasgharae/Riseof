@@ -27,6 +27,8 @@ function migrateV8(o){
 export function ensureDefaults(S){
   S.wounded=S.wounded||{};S.healing=S.healing||[];S.incoming=S.incoming||[];S.npcMarches=[];S.respawns=S.respawns||[];
   S.stats=S.stats||{};if(S.nextRaid==null)S.nextRaid=0;
+  S.camps=S.camps||[];S.intel=S.intel||{};S.pastSeasons=S.pastSeasons||[];
+  if(!S.cmd)S.cmd={tokens:1,unlocked:[],levels:{},emblems:0,granted:[]};
   if(!S.buildings.some(b=>b.type==='hospital'))S.buildings.push({id:'hosp-1',type:'hospital',x:22,y:13,level:1});
   return S;}
 function loadRaw(){try{const s=localStorage.getItem(SAVE_KEY);

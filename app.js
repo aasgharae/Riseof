@@ -5,6 +5,12 @@ import{hospitalLevel,woundedCount,healingCount,addWounded,healCost,healTime}from
 import{buildTribe,scaleTribe,queueRespawn,processRespawns,npcGrow,startWar,resolveWar,maybeRaid,resolveRaid}from'./npc.js';
 import{genSites,siteReady,lootSite,SITE_KINDS}from'./sites.js';
 import{ensureQuests,questsHTML,claimQuest,claimAch,countClaimable,bump}from'./quests.js';
+import{COMMANDERS,CMD,MAX_UNLOCK,MAX_CMD_LEVEL,TOKEN_LEVELS,ensureCmd,grantTokens,unlockCmd,upgradeCmd,upgradeCost as cmdUpCost,busyCmds,freeCmds,cmdFx,homeFx,battleMods,energyCost,armyCap,fxChips,scaleOf}from'./commanders.js';
+import{runSpy,getIntel,estPower,enemySpies}from'./spy.js';
+import{ensureEnergy,spendEnergy}from'./energy.js';
+import{ensureSeason,bossPhase,weaknessAt,bossHit,bossBoard,rewardFor,fmtDur,CLS_NAME}from'./season.js';
+import{campSpotError,campAmbush,campMods,campSpeed}from'./camps.js';
+import{ENERGY,SEASON,CAMP,maxCamps,BOSS_POS}from'./config.js';
 import{Renderer}from'./js/renderer.js';
 import{placeCastles,findHome}from'./js/worldgen.js';
 import{makeRng}from'./js/noise.js';
@@ -32,17 +38,25 @@ const cv=$('cv'),R=new Renderer(cv);R.setState(S);
   for(const t of S.tribes)if(!t.base)t.base=t.power;
   if(!S.sites||!S.sites.length){S.sites=genSites(terr,S.tribes,S.homePos,makeRng(777),30);
     addLog(S,'info','💎 '+S.sites.length+' گنج و غار در قلب نقشه کشف شد');}
-  ensureQuests(S);
-  R.setState(S);save(S);
+  for(const t of S.tribes)if(t.spies==null)t.spies=Math.floor(t.level*6*0.8);
+  for(const x of S.sites){if(x.spies==null)x.spies=Math.floor(x.level*5*0.8);if(x.item==null)x.item=Math.random()<0.13;}
+  ensureQuests(S);ensureCmd(S);ensureEnergy(S);ensureSeason(S);
+  R.setState(S);R.bossOn=bossPhase(S)==='active';save(S);
 })();
 R.setView('world'); // ورود: دوربین روی قلعه خودت، زوم نزدیک
 
 
 const toast=m=>{const t=$('toast');if(!t)return;t.innerHTML=m;clearTimeout(t._h);t._h=setTimeout(()=>t.textContent='',2600);};
 function fmt(n){n=Math.floor(n);if(n>=1e12)return(n/1e12).toFixed(1)+'T';if(n>=1e9)return(n/1e9).toFixed(1)+'B';if(n>=1e6)return(n/1e6).toFixed(1)+'M';if(n>=1e3)return(n/1e3).toFixed(1)+'K';return n;}
-function dist(t){return Math.hypot(t.x-S.homePos.x,t.y-S.homePos.y);}
-function eta(t){return Math.ceil(dist(t)/marchSpeed());}
+function origin(){const k=detailCamp&&S.camps.find(x=>x.id===detailCamp);return k?{x:k.x,y:k.y,camp:k}:{x:S.homePos.x,y:S.homePos.y};}
+function dist(t){const o=origin();return Math.hypot(t.x-o.x,t.y-o.y);}
+function legSpeed(cmd){const o=origin();return o.camp?campSpeed(S,o.camp.cmd):marchSpeed()*(1+(cmdFx(S,cmd).speed||0));}
+function eta(t){return Math.ceil(dist(t)/legSpeed(selCmd));}
+const intelOf=t=>getIntel(S,t.id,Date.now(),homeFx(S,'spy'));
+const powTxt=t=>intelOf(t)?'⚔'+fmt(t.power):'⚔≈'+fmt(estPower(t))+' ؟';
 function updBadges(){
+  const cb=document.querySelector('#dock [data-act=cmd] .badge');if(cb){const t=ensureCmd(S).tokens,ok=t>0&&S.cmd.unlocked.length<MAX_UNLOCK;cb.hidden=!ok;cb.textContent=t;}
+  const en=$('res-energy');if(en&&S.energy)en.textContent='⚡ '+S.energy.v+'/'+ENERGY.max;
   const qb=document.querySelector('#dock [data-act=quests] .badge'),ab=document.querySelector('#dock [data-act=attack] .badge'),al=$('alertBar');
   const n=countClaimable(S);if(qb){qb.hidden=!n;qb.textContent=n;}
   const inc=S.incoming||[];if(ab){ab.hidden=!inc.length;ab.textContent=inc.length;}
@@ -102,12 +116,12 @@ window.finishQ=(barId)=>{const q=S.training[barId];if(!q||!q.length)return;
 
 // ================= HOSPITAL =================
 window.heal=(tid,count)=>{const n=Math.min(count,S.wounded[tid]||0);if(n<=0)return;
-  const cost=healCost(tid,n);if(!canPay(cost))return toast('منابع کافی نیست');
+  const cost=healCost(tid,n,homeFx(S,'heal')*1.2);if(!canPay(cost))return toast('منابع کافی نیست');
   pay(cost);S.wounded[tid]-=n;if(S.wounded[tid]<=0)delete S.wounded[tid];
   const total=healTime(tid,n,hospitalLevel(S));S.healing.push({tid,count:n,left:total,total});
   save(S);renderSheet();updTop();toast('🏥 درمان '+n+'× '+TROOPS[tid].name+' شروع شد');};
 window.healAll=()=>{const tids=Object.keys(S.wounded);if(!tids.length)return;
-  const tot={};for(const t of tids){const c=healCost(t,S.wounded[t]);for(const k in c)tot[k]=(tot[k]||0)+c[k];}
+  const tot={};for(const t of tids){const c=healCost(t,S.wounded[t],homeFx(S,'heal')*1.2);for(const k in c)tot[k]=(tot[k]||0)+c[k];}
   if(!canPay(tot))return toast('منابع کافی نیست');pay(tot);
   for(const t of tids){const n=S.wounded[t];S.healing.push({tid:t,count:n,left:healTime(t,n,hospitalLevel(S)),total:healTime(t,n,hospitalLevel(S))});}
   S.wounded={};save(S);renderSheet();updTop();toast('🏥 درمان همه مجروحان شروع شد');};
@@ -124,28 +138,71 @@ window.cancelHeal=(i)=>{const j=S.healing[i];if(!j)return;
 let selTroops={},detailId=null;
 const getTarget=id=>S.tribes.find(t=>t.id===id)||(S.sites||[]).find(s=>s.id===id);
 window.setSel=(tid,n)=>{n=Math.max(0,Math.min(S.troops[tid]||0,parseInt(n||0)||0));selTroops[tid]=n;updateDetailTotals();};
-window.selMax=(tid)=>{selTroops[tid]=Math.min(S.troops[tid]||0,Math.max(0,expeditionCap(S)-selCount()+(selTroops[tid]||0)));renderSheet();};
+window.selMax=(tid)=>{selTroops[tid]=Math.min(S.troops[tid]||0,Math.max(0,armyCap(S,expeditionCap(S),selCmd)-selCount()+(selTroops[tid]||0)));renderSheet();};
 const selCount=()=>Object.values(selTroops).reduce((a,b)=>a+(b||0),0);
-window.selAll=()=>{const cap=expeditionCap(S);let room=cap;selTroops={};
-  for(const tid of Object.keys(TROOPS)){const take=Math.min(S.troops[tid]||0,room);if(take>0)selTroops[tid]=take;room-=take;}
+window.selAll=()=>{const cap=armyCap(S,expeditionCap(S),selCmd);let room=cap;selTroops={};
+  for(const tid of Object.keys(TROOPS)){if(tid==='spy')continue;const take=Math.min(S.troops[tid]||0,room);if(take>0)selTroops[tid]=take;room-=take;}
   renderSheet();};
 window.selClear=()=>{selTroops={};renderSheet();};
 window.openDetail=(id)=>{detailId=id;selTroops={};openSheet('detail');};
 window.backToAttack=()=>{detailId=null;openSheet('attack');};
-window.launch=(tribeId)=>{const tr=getTarget(tribeId);if(!tr)return;
+const BOSS_T={id:'boss',name:'غول آخر فصل',x:BOSS_POS.x,y:BOSS_POS.y};
+window.setSelCmd=id=>{selCmd=selCmd===id?null:id;selTroops={};renderSheet();};
+// اعزام: حمله عادی، حمله به غول، یا حمله‌ی غافلگیرانه از کمپ
+window.launch=(targetId)=>{
+  const isBoss=targetId==='boss',tr=isBoss?BOSS_T:getTarget(targetId);if(!tr)return;
+  if(isBoss&&bossPhase(S)!=='active')return toast('غول هنوز ظاهر نشده');
   if(tr.kind&&!siteReady(tr,Date.now()))return toast('این مکان در حال بازسازی است');
-  const cap=expeditionCap(S);const marches=maxMarches(S);
-  if(S.marches.length>=marches)return toast('همه صف‌های لشکر پر است (سطح لشکر را بالا ببرید)');
-  const army={};let count=0;
-  for(const tid in selTroops){const n=parseInt(selTroops[tid]||0);if(n>0){army[tid]=Math.min(n,S.troops[tid]||0);count+=army[tid];}}
-  if(!count)return toast('سربازی انتخاب نشده');
-  if(count>cap)return toast('ظرفیت لشکر: '+cap+' سرباز');
-  for(const tid in army)S.troops[tid]-=army[tid];
-  const travel=dist(tr)/marchSpeed();
-  S.marches.push({army,target:tribeId,tx:tr.x,ty:tr.y,hx:S.homePos.x,hy:S.homePos.y,travelLeft:travel,travelTotal:travel});
+  const camp=detailCamp?S.camps.find(k=>k.id===detailCamp):null;
+  if(S.marches.length>=maxMarches(S))return toast('همه صف‌های لشکر پر است (سطح لشکر را بالا ببرید)');
+  let army={},count=0,cmd=null;
+  if(camp){army={...camp.army};count=armyCount(army);cmd=camp.cmd;if(!count)return toast('کمپ لشکری ندارد');}
+  else{cmd=selCmd&&freeCmds(S).includes(selCmd)?selCmd:null;
+    for(const tid in selTroops){const n=parseInt(selTroops[tid]||0);if(n>0&&tid!=='spy'){army[tid]=Math.min(n,S.troops[tid]||0);count+=army[tid];}}
+    if(!count)return toast('سربازی انتخاب نشده');
+    const cap=armyCap(S,expeditionCap(S),cmd);if(count>cap)return toast('ظرفیت لشکر: '+fmt(cap)+' سرباز');}
+  const cost=energyCost(S,cmd);
+  if(!spendEnergy(S,cost))return toast('⚡ انرژی امروز کافی نیست ('+cost+' لازم، '+S.energy.v+' مانده)');
+  if(camp)camp.army={};else for(const tid in army)S.troops[tid]-=army[tid];
+  const o=origin(),travel=Math.hypot(tr.x-o.x,tr.y-o.y)/legSpeed(cmd);
+  S.marches.push({army,target:targetId,tx:tr.x,ty:tr.y,hx:o.x,hy:o.y,travelLeft:travel,travelTotal:travel,cmd,fromCamp:camp?camp.id:null,surprise:!!camp});
   bump(S,'marches');
-  addLog(S,'info','🚩 لشکر به سمت '+tr.name+' حرکت کرد ('+fmt(armyCount(army))+' نفر)');
-  selTroops={};save(S);openSheet('attack');toast('🚩 لشکر به سمت '+tr.name+' حرکت کرد — '+Math.ceil(travel)+'ث');};
+  addLog(S,'info','🚩 '+(camp?'حمله‌ی غافلگیرانه از کمپ':'لشکر')+' به سمت '+tr.name+' حرکت کرد ('+fmt(armyCount(army))+' نفر'+(cmd?' • '+CMD[cmd].icon+CMD[cmd].name:'')+')');
+  selTroops={};save(S);updTop();openSheet('attack');toast('🚩 به سمت '+tr.name+' — '+Math.ceil(travel)+'ث • ⚡-'+cost);};
+// برپایی کمپ: لشکر + فرمانده ارشد به یک نقطه‌ی خالی می‌روند و همان‌جا می‌مانند
+window.startCamp=()=>{
+  if(S.camps.length>=maxCamps(S))return toast('حداکثر '+maxCamps(S)+' کمپ (با سطح لشکر بیشتر می‌شود)');
+  $('sheet').hidden=true;R.campMode=true;R.setView('world');$('tabWorld').classList.add('on');$('tabCastle').classList.remove('on');
+  $('modeBar').hidden=false;$('modeBar').innerHTML='⛺ روی یک نقطه‌ی خالی از نقشه ضربه بزن <button onclick="cancelCamp()">لغو</button>';};
+window.cancelCamp=()=>{R.campMode=false;$('modeBar').hidden=true;};
+window.deployCamp=()=>{
+  if(!campDraft)return;const err=campSpotError(S,R.terr,campDraft.x,campDraft.y);if(err)return toast(err);
+  if(S.camps.length>=maxCamps(S))return toast('حداکثر کمپ پر است');
+  if(S.marches.length>=maxMarches(S))return toast('همه صف‌های لشکر پر است');
+  const cmd=selCmd&&freeCmds(S).includes(selCmd)?selCmd:null;if(!cmd)return toast('برای کمپ باید یک فرمانده ارشد انتخاب کنی');
+  const army={};let count=0;for(const tid in selTroops){const n=parseInt(selTroops[tid]||0);if(n>0&&tid!=='spy'){army[tid]=Math.min(n,S.troops[tid]||0);count+=army[tid];}}
+  if(!count)return toast('سربازی انتخاب نشده');if(count>armyCap(S,expeditionCap(S),cmd))return toast('بیش از ظرفیت لشکر');
+  const cost=energyCost(S,cmd);if(!spendEnergy(S,cost))return toast('⚡ انرژی کافی نیست ('+cost+' لازم)');
+  for(const tid in army)S.troops[tid]-=army[tid];
+  const d=Math.hypot(campDraft.x-S.homePos.x,campDraft.y-S.homePos.y)/legSpeed(cmd);
+  S.marches.push({army,target:null,deployCamp:true,tx:campDraft.x,ty:campDraft.y,hx:S.homePos.x,hy:S.homePos.y,travelLeft:d,travelTotal:d,cmd});
+  bump(S,'marches');addLog(S,'info','⛺ لشکر برای برپایی کمپ حرکت کرد');campDraft=null;selTroops={};save(S);updTop();openSheet('attack');toast('⛺ در راه کمپ — ⚡-'+cost);};
+window.useCamp=(id)=>{detailCamp=id;openSheet('attack');};
+window.homeMode=()=>{detailCamp=null;openSheet('attack');};
+window.recallCamp=(id)=>{const k=S.camps.find(x=>x.id===id);if(!k)return;
+  S.camps=S.camps.filter(x=>x!==k);
+  if(armyCount(k.army)>0){const d=Math.hypot(S.homePos.x-k.x,S.homePos.y-k.y)/(marchSpeed()*(1+(cmdFx(S,k.cmd).speed||0)));
+    S.marches.push({army:k.army,target:null,returning:true,cmd:k.cmd,tx:S.homePos.x,ty:S.homePos.y,hx:k.x,hy:k.y,travelLeft:d,travelTotal:d});}
+  detailCamp=null;save(S);renderSheet();toast('⛺ کمپ جمع شد و لشکر برمی‌گردد');};
+// جاسوسی
+window.setSpyN=n=>{spyN=Math.max(1,parseInt(n)||1);};
+window.doSpy=(id)=>{const t=getTarget(id);if(!t)return;
+  const have=S.troops.spy||0,n=Math.min(spyN,have);if(n<1)return toast('جاسوس نداری — در سربازخانه (فیلتر 🕵️ جاسوس) بساز');
+  if(!spendEnergy(S,ENERGY.spy))return toast('⚡ انرژی کافی نیست');
+  const r=runSpy(S,t,n,homeFx(S,'spy'),Math.random);S.troops.spy-=r.lost;
+  if(r.ok){addLog(S,'info','🕵️ جاسوسی از '+t.name+' موفق بود — اطلاعات تا ۱۰ دقیقه معتبر'+(r.lost?' ('+r.lost+' جاسوس از دست رفت)':''));toast('🕵️ جاسوسی موفق: اطلاعات '+t.name+' آشکار شد');}
+  else{addLog(S,'lose','🕵️ جاسوسی از '+t.name+' لو رفت — جاسوس‌های دشمن قوی‌تر بودند ('+r.lost+' جاسوس کشته شد)');toast('🕵️ جاسوس‌هایت لو رفتند! جاسوس بیشتر یا قوی‌تر بفرست');}
+  save(S);updTop();renderSheet();};
 window.speedMarch=(idx)=>{const m=S.marches[idx];if(!m)return;
   const gc=speedCost(m.travelLeft);if(S.resources.gold<gc)return toast('🪙 سکه کافی نیست ('+gc+' لازم)');
   S.resources.gold-=gc;m.travelLeft=0;save(S);toast('⚡ لشکر فوری رسید (-'+gc+'🪙)');};
@@ -155,37 +212,65 @@ window.cancelMarch=(idx)=>{const m=S.marches[idx];if(!m)return;
 
 const ICO={food:'🌾',wood:'🪵',stone:'🪨',iron:'⛓️',gold:'🪙'};
 const mulNote=(m)=>m>=1.15?' • 🎯 تقابل به نفع تو ×'+m.toFixed(2):m<=0.88?' • ⚠ تقابل بر ضد تو ×'+m.toFixed(2):'';
-function sendHome(army,hx,hy){if(armyCount(army)<=0)return;
-  const d=Math.hypot(S.homePos.x-hx,S.homePos.y-hy)/marchSpeed();
-  S.marches.push({army,target:null,returning:true,tx:S.homePos.x,ty:S.homePos.y,hx,hy,travelLeft:d,travelTotal:d});}
+function sendBack(army,hx,hy,m){
+  if(armyCount(army)<=0)return;
+  const camp=m&&m.fromCamp?S.camps.find(k=>k.id===m.fromCamp):null;
+  const tx=camp?camp.x:S.homePos.x,ty=camp?camp.y:S.homePos.y;
+  const sp=camp?campSpeed(S,m.cmd):marchSpeed()*(1+(cmdFx(S,m?.cmd).speed||0));
+  const d=Math.hypot(tx-hx,ty-hy)/sp;
+  S.marches.push({army,target:null,returning:true,toCamp:camp?camp.id:null,cmd:m?.cmd||null,tx,ty,hx,hy,travelLeft:d,travelTotal:d});}
+const sendHome=(army,hx,hy)=>sendBack(army,hx,hy,null);
+function takeLosses(army,losses){const sv={};for(const k in army){const n=army[k]-(losses[k]||0);if(n>0)sv[k]=n;}return sv;}
+function resolveBoss(m){
+  if(bossPhase(S)!=='active'){addLog(S,'info','🗿 غول دیگر در نقشه نیست — لشکر برگشت');sendBack(m.army,m.tx,m.ty,m);return;}
+  const fx=cmdFx(S,m.cmd),h=bossHit(S,m.army,fx),losses={};
+  for(const k in m.army){const n=Math.min(m.army[k],Math.floor(m.army[k]*h.lossFrac+0.5));if(n>0)losses[k]=n;}
+  const hurt=addWounded(S,losses,fx.heal||homeFx(S,'heal'));
+  S.boss.dmg+=h.damage;S.boss.hits++;
+  const me=bossBoard(S).find(r=>r.me);
+  const lostTxt=armyCount(losses)?' — 🩹'+fmt(hurt.wounded)+' مجروح • ☠'+fmt(hurt.dead)+' کشته':'';
+  addLog(S,'win','🗿 ضربه به غول: '+fmt(h.damage)+' امتیاز (تقابل ×'+h.mult.toFixed(2)+')'+lostTxt+' — رتبه شما: #'+(me?me.rank:'؟'));
+  toast('🗿 <b>'+fmt(h.damage)+'</b> امتیاز به غول زدی • رتبه #'+(me?me.rank:'؟'));
+  sendBack(takeLosses(m.army,losses),m.tx,m.ty,m);}
 function resolveMarch(m){
-  const now=Date.now(),tr=getTarget(m.target);
+  const now=Date.now();
+  if(m.deployCamp){const k={id:'c'+now,x:m.tx,y:m.ty,army:m.army,cmd:m.cmd||null,cmdIcon:m.cmd?CMD[m.cmd].icon:'',since:now};
+    S.camps.push(k);addLog(S,'info','⛺ کمپ برپا شد — حالا کمین می‌کند و حمله‌ی سریع‌تر دارد');toast('⛺ کمپ برپا شد');return;}
+  if(m.target==='boss')return resolveBoss(m);
+  const tr=getTarget(m.target);
   if(!tr||(tr.kind&&!siteReady(tr,now))){
     addLog(S,'info','🏳️ هدف دیگر در دسترس نبود — لشکر برگشت');toast('🏳️ هدف دیگر وجود ندارد — لشکر برمی‌گردد');
-    sendHome(m.army,m.tx,m.ty);return;}
-  const site=!!tr.kind,gcount=armyCount(tr.garrison||{});
-  const r=battle(m.army,{army:tr.garrison||{},power:tr.power},tr.wall||0,15);
-  const survivors={};for(const k in m.army){const n=m.army[k]-(r.attLosses[k]||0);if(n>0)survivors[k]=n;}
-  const hurt=addWounded(S,r.attLosses),lostTxt=armyCount(r.attLosses)?' — 🩹'+fmt(hurt.wounded)+' مجروح • ☠'+fmt(hurt.dead)+' کشته':'';
+    sendBack(m.army,m.tx,m.ty,m);return;}
+  const site=!!tr.kind,gcount=armyCount(tr.garrison||{}),fx=cmdFx(S,m.cmd);
+  const mods=m.surprise?campMods(S,{cmd:m.cmd}):battleMods(fx);
+  const r=battle(m.army,{army:tr.garrison||{},power:tr.power},tr.wall||0,15,mods);
+  const survivors=takeLosses(m.army,r.attLosses);
+  const hurt=addWounded(S,r.attLosses,fx.heal||homeFx(S,'heal')),lostTxt=armyCount(r.attLosses)?' — 🩹'+fmt(hurt.wounded)+' مجروح • ☠'+fmt(hurt.dead)+' کشته':'';
+  delete S.intel[tr.id];
+  const tag=(m.surprise?' • ⛺ غافلگیری':'')+(m.cmd?' • '+CMD[m.cmd].icon:'');
   if(r.win){
-    const loot={...tr.loot};for(const k in loot)S.resources[k]=(S.resources[k]||0)+loot[k];
+    const lm=1+(fx.loot||0),loot={};for(const k in tr.loot){loot[k]=Math.floor(tr.loot[k]*lm);S.resources[k]=(S.resources[k]||0)+loot[k];}
     S.kills=(S.kills||0)+gcount;bump(S,'won');
-    if(site){lootSite(tr,now,Math.random);bump(S,'sites');
-      addLog(S,'win','💎 '+tr.name+' غارت شد — '+fmt(loot.gold||0)+'🪙 '+fmt(loot.iron||0)+'⛓️ '+fmt(loot.stone||0)+'🪨'+lostTxt+mulNote(r.atkMul));
-      toast('💎 <b>'+tr.name+'</b> غارت شد! +'+fmt(loot.gold||0)+'🪙');
+    if(site){
+      const lucky=(tr.item||Math.random()<(fx.item||0))&&S.season.itemPool>0;
+      if(lucky){S.season.itemPool--;S.cmd.emblems++;}
+      lootSite(tr,now,Math.random);bump(S,'sites');
+      addLog(S,'win','💎 '+tr.name+' غارت شد — '+fmt(loot.gold||0)+'🪙 '+fmt(loot.iron||0)+'⛓️ '+fmt(loot.stone||0)+'🪨'+(lucky?' • 🎖 نشان ارتقای فرمانده پیدا شد!':'')+lostTxt+mulNote(r.atkMul)+tag);
+      toast(lucky?'🎖 <b>نشان ارتقای فرمانده</b> از '+tr.name+' پیدا کردی!':'💎 <b>'+tr.name+'</b> غارت شد! +'+fmt(loot.gold||0)+'🪙');
     }else{
       S.tribes=S.tribes.filter(t=>t.id!==tr.id);S.conquered++;
       S.factionKills=S.factionKills||{};S.factionKills[tr.faction]=(S.factionKills[tr.faction]||0)+1;
       queueRespawn(S,tr,now,Math.random);
-      addLog(S,'win','🏰 پیروزی! '+tr.name+' (Lv'+tr.level+') فتح شد — ☠'+fmt(gcount)+' دشمن'+lostTxt+' — غنیمت: '+fmt(loot.gold||0)+'🪙 '+fmt(loot.food||0)+'🌾'+mulNote(r.atkMul));
+      addLog(S,'win','🏰 پیروزی! '+tr.name+' (Lv'+tr.level+') فتح شد — ☠'+fmt(gcount)+' دشمن'+lostTxt+' — غنیمت: '+fmt(loot.gold||0)+'🪙 '+fmt(loot.food||0)+'🌾'+mulNote(r.atkMul)+tag);
       toast('🏰 <b>پیروزی!</b> '+tr.name+' فتح شد — غنیمت: +'+fmt(loot.gold||0)+'🪙');}
   }else{
     S.kills=(S.kills||0)+Math.floor(gcount*r.dLoss);
     scaleTribe(tr,Math.max(0.3,1-r.dLoss));
-    addLog(S,'lose','❌ شکست از '+tr.name+' — قدرت مؤثر ما '+fmt(r.atk)+' در برابر '+fmt(r.def)+lostTxt+mulNote(r.atkMul));
+    addLog(S,'lose','❌ شکست از '+tr.name+' — قدرت مؤثر ما '+fmt(r.atk)+' در برابر '+fmt(r.def)+lostTxt+mulNote(r.atkMul)+tag);
     toast('❌ شکست از '+tr.name+' — '+fmt(r.atk)+' در برابر '+fmt(r.def));}
-  sendHome(survivors,tr.x,tr.y);
+  sendBack(survivors,tr.x,tr.y,m);
 }
+
 // حمله NPC به قلعه من
 function handleRaid(raid){
   const o=resolveRaid(S,raid,Math.random),hurt=addWounded(S,o.myLosses);
@@ -202,7 +287,7 @@ function handleRaid(raid){
     toast('🛡 <b>حمله '+raid.name+' دفع شد!</b> ☠'+fmt(o.kills)+' دشمن کشته شد');}}
 
 // ================= UI =================
-let cur='build',atkSort='near',searchQ='',boardTab='power',trainBar='bar-1',trainCls='all',trainQty=100,qTab='daily';
+let cur='build',atkSort='near',searchQ='',boardTab='power',trainBar='bar-1',trainCls='all',trainQty=100,qTab='daily',selCmd=null,detailCamp=null,spyN=10,campDraft=null;
 function costStr(c){return Object.entries(c).map(([k,v])=>({food:'🌾',wood:'🪵',stone:'🪨',iron:'⛓️',gold:'🪙'})[k]+' '+fmt(v)).join('  ');}
 function prodStr(t,l){const p=buildingProd(t,l);const e=Object.entries(p);if(!e.length)return'—';
   return e.map(([k,v])=>({food:'🌾',wood:'🪵',stone:'🪨',iron:'⛓️',gold:'🪙'})[k]+'+'+fmt(v*60)+'/د').join('  ');}
@@ -215,7 +300,7 @@ function sortedTribes(){
   return list;}
 function tribeRow(t,onclick){return '<div class="res" onclick="'+onclick+'"><span class="fdot" style="background:'+(t.color||'#e5484d')+'"></span>'
   +'<div><b>'+t.name+'</b><br><span style="color:var(--dim);font-size:12px">'+(t.factionName||'')+'</span></div>'
-  +'<div class="meta">Lv'+t.level+' • ⚔'+fmt(t.power)+'<br>📏'+Math.round(dist(t))+' • ⏱'+eta(t)+'ث</div></div>';}
+  +'<div class="meta">Lv'+t.level+' • '+powTxt(t)+'<br>📏'+Math.round(dist(t))+' • ⏱'+eta(t)+'ث</div></div>';}
 
 const costChips=c=>Object.entries(c).map(([k,v])=>'<span class="'+((S.resources[k]||0)>=v?'ok':'no')+'">'+ICO[k]+' '+fmt(v)+'</span>').join(' ');
 function sheetSeg(){const wc=woundedCount(S);
@@ -223,18 +308,22 @@ function sheetSeg(){const wc=woundedCount(S);
 function maxAfford(tid){const T=TROOPS[tid];let m=Infinity;for(const k in T.cost)m=Math.min(m,Math.floor((S.resources[k]||0)/T.cost[k]));return Math.max(0,m);}
 function troopCard(tid,lvl){
   const T=TROOPS[tid],cls=TROOP_CLASS[tid],locked=T.unlock>lvl;
-  const beats=Object.keys(COUNTER[cls]).filter(d=>COUNTER[cls][d]>=1.3).map(d=>CLASS_INFO[d].icon).join(' ');
-  const weak=Object.keys(COUNTER[cls]).filter(d=>COUNTER[cls][d]<=0.8).map(d=>CLASS_INFO[d].icon).join(' ');
+  const beats=Object.keys(COUNTER[cls]||{}).filter(d=>COUNTER[cls][d]>=1.3).map(d=>CLASS_INFO[d].icon).join(' ');
+  const weak=Object.keys(COUNTER[cls]||{}).filter(d=>COUNTER[cls][d]<=0.8).map(d=>CLASS_INFO[d].icon).join(' ');
   const qty=trainQty,cost={};for(const k in T.cost)cost[k]=T.cost[k]*qty;
   const t=Math.ceil(T.time*Math.pow(qty,0.7)/(1+lvl*0.22)),mx=maxAfford(tid),ok=canPay(cost);
   return '<div class="tcard'+(locked?' lock':'')+'"><div class="trow"><b>'+T.icon+' '+T.name+' <span class="chip">'+CLASS_INFO[cls].icon+' '+CLASS_INFO[cls].name+'</span></b><span class="tpow">👥 '+fmt(S.troops[tid]||0)+'</span></div>'
    +(locked?'<div class="q">🔒 نیاز به سربازخانه Lv'+T.unlock+'</div>'
    :'<div class="q">⚔ قدرت '+T.power+' • ⏱ '+(t>=60?Math.floor(t/60)+'د ':'')+(t%60)+'ث برای '+fmt(qty)+'</div>'
+   +(cls==='spy'?'<div class="q">🕵️ غیرجنگی — برای جاسوسی از قلعه‌ها و گنج‌ها. جاسوس بیشتر یا قوی‌تر از جاسوس‌های دشمن = جاسوسی موفق</div>':'')
    +'<div class="q">'+(beats?'✅ قوی در برابر: '+beats:'')+(weak?' &nbsp; ⚠️ ضعیف در برابر: '+weak:'')+'</div>'
    +'<div class="q">'+costChips(cost)+'</div>'
    +'<div class="row"><button class="btn sm" '+(ok?'':'disabled')+' onclick="train(\''+trainBar+'\',\''+tid+'\','+qty+')">⚔ ساخت '+fmt(qty)+'</button>'
    +'<button class="btn sm ghost" '+(mx<1?'disabled':'')+' onclick="trainMax(\''+trainBar+'\',\''+tid+'\')">MAX ('+fmt(mx)+')</button>'
    +'<button class="btn sm gold" '+(ok?'':'disabled')+' onclick="instantTrain(\''+trainBar+'\',\''+tid+'\','+qty+')">⚡ '+speedCost(T.time*Math.pow(qty,0.7)/(1+lvl*0.22))+'🪙</button></div>')+'</div>';}
+window.pickCmd=id=>{const c=CMD[id];if(!confirm('«'+c.name+'» را با ۱ توکن باز کنی؟ بازگشت ندارد.'))return;
+  if(unlockCmd(S,id)){addLog(S,'info','🎖 فرمانده '+c.name+' باز شد');save(S);updTop();renderSheet();toast('🎖 '+c.icon+' '+c.name+' به لشکرت پیوست');}else toast('توکن یا جای خالی نداری');};
+window.upCmd=id=>{if(upgradeCmd(S,id)){save(S);updTop();renderSheet();toast('⬆ '+CMD[id].name+' به Lv'+S.cmd.levels[id]+' رسید');}else toast('نشان ارتقا کافی نیست');};
 window.setTrainBar=id=>{trainBar=id;renderSheet();};
 window.setTrainCls=k=>{trainCls=k;renderSheet();};
 window.setTrainQty=n=>{trainQty=Math.max(1,Math.min(100000,parseInt(n)||1));renderSheet();};
@@ -243,9 +332,9 @@ window.setQTab=k=>{qTab=k;renderSheet();};
 window.claimQ=(list,i)=>{const rw=claimQuest(S,list,i);if(!rw)return;save(S);updTop();renderSheet();toast('🎁 جایزه دریافت شد: +'+fmt(rw.gold)+'🪙');};
 window.claimA=id=>{const rw=claimAch(S,id);if(!rw)return;save(S);updTop();renderSheet();toast('🏅 دستاورد! +'+fmt(rw.gold)+'🪙');};
 window.openSheet=k=>openSheet(k);
-const ER_SEG=()=>'<div class="seg"><button class="'+(cur==='empire'?'on':'')+'" onclick="openSheet(\'empire\')">👑 امپراتوری</button><button class="'+(cur==='reports'?'on':'')+'" onclick="openSheet(\'reports\')">📜 گزارش‌ها</button></div>';
+const ER_SEG=()=>'<div class="seg">'+[['empire','👑 امپراتوری'],['board','🏆 لیدربرد'],['boss','🗿 غول و فصل'],['reports','📜 گزارش‌ها']].map(([k,l])=>'<button class="'+(cur===k?'on':'')+'" onclick="openSheet(\''+k+'\')">'+l+'</button>').join('')+'</div>';
 function renderSheet(){const els=[$('sheetBody'),$('sheetCard')],st=els.map(e=>e?e.scrollTop:0);
-  _renderSheet();if(!$('sheet').hidden&&(cur==='empire'||cur==='reports'))$('sheetBody').insertAdjacentHTML('afterbegin',ER_SEG());
+  _renderSheet();if(!$('sheet').hidden&&(cur==='empire'||cur==='reports'||cur==='board'||cur==='boss'))$('sheetBody').insertAdjacentHTML('afterbegin',ER_SEG());
   els.forEach((e,i)=>{if(e)e.scrollTop=st[i];});}
 function _renderSheet(){const B=$('sheetBody');if(!B||$('sheet').hidden)return;
 if(cur==='build'){
@@ -298,6 +387,13 @@ if(cur==='attack'){
   const cap=expeditionCap(S),mm=maxMarches(S),wl=S.buildings.find(b=>b.type==='wall')?.level||0;
   let h='<div class="card hero"><div class="bhead">🚩 <b>لشکر</b> <span class="lvl">ظرفیت '+fmt(cap)+' • '+S.marches.length+'/'+mm+' صف</span></div>'
     +'<div class="q">🛡 دفاع قلعه: ⚔'+fmt(armyPower(S.troops))+' • 🧱 دیوار Lv'+wl+' • 🩹 مجروح: '+fmt(woundedCount(S))+'</div></div>';
+  h+='<div class="card"><div class="q">⚡ انرژی امروز: <b>'+S.energy.v+'/'+ENERGY.max+'</b> (هر حرکت لشکر '+ENERGY.move+'، جاسوسی '+ENERGY.spy+') • فردا دوباره ۱۰۰</div><div class="bar"><i style="width:'+S.energy.v+'%"></i></div></div>';
+  if(bossPhase(S)==='active')h+='<div class="card danger" onclick="openSheet(\'boss\')"><b>🗿 غول آخر فصل ظاهر شده!</b><div class="q">نامیرا — ضربه بزن و امتیاز بگیر ›</div></div>';
+  const campNow=detailCamp&&S.camps.find(k=>k.id===detailCamp);
+  if(campNow)h+='<div class="card hero"><b>⛺ حمله‌ی غافلگیرانه از کمپ '+campNow.cmdIcon+'</b><div class="q">👥 '+fmt(armyCount(campNow.army))+' • سریع‌تر، +۲۰٪ قدرت، نادیده‌گرفتن بخشی از دیوار <button class="btn sm ghost" onclick="homeMode()">حالت عادی</button></div></div>';
+  h+='<div class="card"><div class="bhead">⛺ <b>کمپ‌ها</b><span class="lvl">'+S.camps.length+'/'+maxCamps(S)+'</span><button class="btn sm" onclick="startCamp()">+ برپایی کمپ</button></div>'
+    +(S.camps.length?S.camps.map(k=>'<div class="q">'+(k.cmdIcon||'')+' '+(k.cmd?CMD[k.cmd].name:'')+' • 👥'+fmt(armyCount(k.army))+' <button class="btn sm" onclick="useCamp(\''+k.id+'\')">⚔ حمله از کمپ</button> <button class="btn sm ghost" onclick="recallCamp(\''+k.id+'\')">↩ فراخوان</button></div>').join('')
+      :'<div class="q">با لشکر و فرمانده در یک نقطه‌ی خالی کمپ بزن: لشکرهای دشمن که از کنارش رد شوند کمین می‌شوند و حمله از کمپ سریع‌تر و غافلگیرانه است.</div>')+'</div>';
   for(const r of S.incoming)h+='<div class="card danger"><b>⚠️ حمله دشمن: '+r.name+'</b><div class="q">⏱ '+Math.ceil(r.left)+' ثانیه تا رسیدن • 👥'+fmt(armyCount(r.army))+' ⚔'+fmt(r.power)+' — دفاع شما ⚔'+fmt(armyPower(S.troops))+'</div></div>';
   h+=S.marches.map((m,i)=>{const tr=getTarget(m.target);
     if(m.returning)return '<div class="card"><b>🏳️ بازگشت به خانه</b> — 👥'+fmt(armyCount(m.army))+' • '+Math.ceil(m.travelLeft)+'ث <button class="btn sm" onclick="speedMarch('+i+')">⚡ '+speedCost(m.travelLeft)+'🪙</button></div>';
@@ -313,36 +409,103 @@ if(cur==='attack'){
     h+=L.map(t=>{const ready=siteReady(t,now);
       return '<div class="res" onclick="openDetail(\''+t.id+'\')"><span style="font-size:20px">'+SITE_KINDS[t.kind].icon+'</span>'
        +'<div><b>'+t.name+'</b><br><span style="color:var(--dim);font-size:12px">'+SITE_KINDS[t.kind].note+(ready?'':' • 💤 '+Math.ceil((t.cd-now)/1000)+'ث')+'</span></div>'
-       +'<div class="meta">Lv'+t.level+' • ⚔'+fmt(t.power)+'<br>📏'+Math.round(dist(t))+' • ⏱'+eta(t)+'ث</div></div>';}).join('');
+       +'<div class="meta">Lv'+t.level+' • '+powTxt(t)+'<br>📏'+Math.round(dist(t))+' • ⏱'+eta(t)+'ث</div></div>';}).join('');
   }else{
     const list=sortedTribes();
     h+=list.slice(0,25).map(t=>tribeRow(t,'openDetail(\''+t.id+'\')')).join('');
     if(list.length>25)h+='<div class="q" style="justify-content:center">… و '+(list.length-25)+' قلعه دیگر — از 🔍 جستجو یا مرتب‌سازی استفاده کنید</div>';}
   B.innerHTML=h;}
-if(cur==='detail'){
-  const t=getTarget(detailId);
-  if(!t){cur='attack';renderSheet();return;}
-  const site=!!t.kind,now=Date.now(),def=t.power+(t.wall||0)*15;
-  const best=bestCounters(t.garrison||{});
-  let h='<button class="btn sm ghost" onclick="backToAttack()">→ بازگشت به فهرست</button>';
-  h+='<div class="card hero"><div class="bhead">'+(site?'<span style="font-size:20px">'+SITE_KINDS[t.kind].icon+'</span>':'<span class="fdot" style="background:'+(t.color||'#e5484d')+'"></span>')+'<b>'+t.name+'</b><span class="lvl">Lv'+t.level+'</span></div>'
-    +'<div class="q">'+(site?SITE_KINDS[t.kind].note:(t.factionName||''))+(t.wall?' • 🧱 دیوار Lv'+t.wall:'')+' • ⚔ پاور دفاع: '+fmt(def)+'</div>'
-    +'<div class="q">📏 فاصله: '+Math.round(dist(t))+' • ⏱ رسیدن: '+eta(t)+' ثانیه • 👥 نگهبان: '+fmt(armyCount(t.garrison||{}))+'</div>'
-    +'<div class="q">💰 غنیمت: '+costStr(t.loot)+'</div>'
-    +'<div class="q">🛡 گارد: '+Object.entries(t.garrison||{}).map(([k,v])=>TROOPS[k].icon+fmt(v)).join(' ')+'</div>'
-    +(best.length?'<div class="q">💡 پیشنهاد تقابل: '+best.map(b=>b.icon+' '+b.name+' ×'+b.mult.toFixed(2)).join(' و ')+'</div>':'')+'</div>';
+if(cur==='detail'||cur==='campSetup'){
+  const isSetup=cur==='campSetup',isBoss=!isSetup&&detailId==='boss',t=isSetup?null:(isBoss?BOSS_T:getTarget(detailId));
+  if(!isSetup&&!t){cur='attack';renderSheet();return;}
+  if(isSetup&&!campDraft){cur='attack';renderSheet();return;}
+  const free=freeCmds(S);if(selCmd&&!free.includes(selCmd))selCmd=null;
+  const site=!!(t&&t.kind),now=Date.now(),camp=!isSetup&&detailCamp?S.camps.find(k=>k.id===detailCamp):null;
+  const it=(!isBoss&&!isSetup)?intelOf(t):null,spyB=homeFx(S,'spy');
+  let h=isSetup?'<button class="btn sm ghost" onclick="openSheet(\'attack\')">→ لغو</button>':'<button class="btn sm ghost" onclick="backToAttack()">→ بازگشت به فهرست</button>';
+  if(isSetup){
+    const d=Math.hypot(campDraft.x-S.homePos.x,campDraft.y-S.homePos.y);
+    h+='<div class="card hero"><div class="bhead">⛺ <b>برپایی کمپ</b><span class="lvl">'+S.camps.length+'/'+maxCamps(S)+'</span></div>'
+      +'<div class="q">📏 '+Math.round(d)+' • ⏱ '+Math.ceil(d/legSpeed(selCmd))+'ث • ⚡'+energyCost(S,selCmd)+' انرژی</div>'
+      +'<div class="q">لشکر و فرمانده‌ای که انتخاب می‌کنی همان‌جا می‌مانند: لشکرهای دشمن که از کنارشان رد شوند کمین می‌شوند و از کمپ حمله‌ی سریع‌تر و غافلگیرانه داری. در عوض قلعه‌ات بدون آن‌ها می‌ماند!</div></div>';
+  }else if(isBoss){
+    const w=weaknessAt(S,now);
+    h+='<div class="card hero"><div class="bhead">🗿 <b>غول آخر فصل</b><span class="lvl">نامیرا</span></div>'
+      +'<div class="q">🎯 نقطه‌ضعف الان: <b>'+CLS_NAME[w.weak]+'</b> (×1.6) • مقاوم: '+CLS_NAME[w.resist]+' (×0.7) • تغییر تا '+fmtDur(w.nextIn)+'</div>'
+      +'<div class="q">💥 امتیاز شما تا الان: <b>'+fmt(S.boss?.dmg||0)+'</b> در '+(S.boss?.hits||0)+' ضربه • غول تلفات سنگین می‌گیرد 🩹</div></div>';
+  }else{
+    const def=t.power+(t.wall||0)*15;
+    h+='<div class="card hero"><div class="bhead">'+(site?'<span style="font-size:20px">'+SITE_KINDS[t.kind].icon+'</span>':'<span class="fdot" style="background:'+(t.color||'#e5484d')+'"></span>')+'<b>'+t.name+'</b><span class="lvl">Lv'+t.level+'</span></div>'
+      +'<div class="q">'+(site?SITE_KINDS[t.kind].note:(t.factionName||''))+' • ⚔ پاور دفاع: '+(it?fmt(def)+(t.wall?' (🧱 دیوار Lv'+t.wall+')':''):'<b>≈'+fmt(estPower(t))+'</b> (تخمینی)')+'</div>'
+      +'<div class="q">📏 فاصله: '+Math.round(dist(t))+' • ⏱ رسیدن: '+eta(t)+' ثانیه</div>'
+      +'<div class="q">💰 غنیمت: '+(it?costStr(t.loot):'❓ ناشناخته')+'</div>'
+      +'<div class="q">🛡 گارد: '+(it?Object.entries(t.garrison||{}).map(([k,v])=>TROOPS[k].icon+fmt(v)).join(' ')+' • 🕵️ '+fmt(it.spies)+' جاسوس':'❓ ناشناخته — جاسوسی کن')+'</div>';
+    if(it){const best=bestCounters(t.garrison||{});
+      if(best.length)h+='<div class="q">💡 پیشنهاد تقابل: '+best.map(b=>b.icon+' '+b.name+' ×'+b.mult.toFixed(2)).join(' و ')+'</div>';
+      if(site&&it.aura!==null)h+='<div class="q">🔮 هاله‌ی آیتم: '+(it.aura?'<b style="color:var(--gold)">احتمالاً نشان ارتقا دارد ✨</b>':'احتمالاً ندارد')+' (دقت '+(spyB>=0.9?'۱۰۰':'۶۰')+'٪)</div>';
+      h+='<div class="q" style="color:var(--dim)">🕵️ اطلاعات '+Math.floor((now-S.intel[t.id].t)/60000)+' دقیقه پیش — پس از ۱۰ دقیقه منقضی می‌شود</div>';}
+    h+='</div>';
+    h+='<div class="card"><div class="bhead">🕵️ <b>جاسوسی</b><span class="lvl">'+fmt(S.troops.spy||0)+' جاسوس</span></div>'
+      +'<div class="q">اگر جاسوس‌های دشمن بیشتر یا قوی‌تر باشند، جاسوسی لو می‌رود و جاسوس‌هایت کشته می‌شوند. هزینه: ⚡'+ENERGY.spy+'</div>'
+      +'<div class="row"><input class="qin" type="number" min="1" value="'+Math.min(spyN,Math.max(1,S.troops.spy||1))+'" onchange="setSpyN(this.value)"><button class="btn sm" onclick="doSpy(\''+t.id+'\')">🕵️ جاسوسی</button></div></div>';
+  }
   if(site&&!siteReady(t,now)){h+='<div class="card">💤 در حال بازسازی — '+Math.ceil((t.cd-now)/1000)+' ثانیه دیگر با نگهبانان قوی‌تر برمی‌گردد.</div>';B.innerHTML=h;return;}
-  const owned=Object.keys(TROOPS).filter(tid=>(S.troops[tid]||0)>0);
+  if(camp){
+    h+='<div class="card"><div class="bhead">⛺ <b>لشکر کمپ</b> '+camp.cmdIcon+' '+(camp.cmd?CMD[camp.cmd].name:'')+'</div><div class="q">👥 '+fmt(armyCount(camp.army))+' • ⚔'+fmt(armyPower(camp.army))+' • ⚡'+energyCost(S,camp.cmd)+'</div>'
+      +'<div class="q">حمله‌ی غافلگیرانه: سریع‌تر، +۲۰٪ قدرت و بخشی از دیوار نادیده گرفته می‌شود.</div>'
+      +'<button class="btn wide" onclick="launch(\''+t.id+'\')">🚀 حمله‌ی غافلگیرانه به '+t.name+'</button></div>';
+    B.innerHTML=h;return;}
+  // فرمانده ارشد
+  h+='<div class="card"><div class="bhead">🎖 <b>فرمانده ارشد</b></div>'
+    +(free.length?'<div class="seg">'+free.map(id=>'<button class="'+(selCmd===id?'on':'')+'" onclick="setSelCmd(\''+id+'\')">'+CMD[id].icon+' '+CMD[id].name+' Lv'+S.cmd.levels[id]+'</button>').join('')+'</div>'
+      :'<div class="q">'+(S.cmd.unlocked.length?'همه‌ی فرمانده‌ها مشغول‌اند':'هنوز فرمانده‌ای باز نکرده‌ای — از دکمه‌ی 🎖 پایین انتخاب کن')+'</div>')
+    +(selCmd?'<div class="q">'+fxChips(CMD[selCmd].fx,S.cmd.levels[selCmd]).join(' • ')+'</div>':'')+'</div>';
+  const owned=Object.keys(TROOPS).filter(tid=>tid!=='spy'&&(S.troops[tid]||0)>0);
   if(!owned.length)h+='<div class="card">سربازی نداری! از منوی ⚔️ سرباز، نیرو بساز.</div>';
   else{
-    h+='<div class="row"><button class="btn sm" onclick="selAll()">✚ انتخاب همه (تا ظرفیت '+fmt(expeditionCap(S))+')</button><button class="btn sm ghost" onclick="selClear()">✕ پاک کردن</button></div>';
-    h+=owned.map(tid=>{const T=TROOPS[tid],m=troopMultVs(tid,t.garrison||{}),col=m>1.15?'var(--green)':m<0.88?'var(--red)':'var(--dim)';
-      return '<div class="armyrow"><span>'+T.icon+'</span><b>'+T.name+'</b><span class="cnt">'+CLASS_INFO[TROOP_CLASS[tid]].icon+' موجود: '+fmt(S.troops[tid])+' • ⚔'+T.power+' • <b style="color:'+col+'">🎯×'+m.toFixed(2)+'</b></span>'
+    h+='<div class="row"><button class="btn sm" onclick="selAll()">✚ انتخاب همه (تا ظرفیت '+fmt(armyCap(S,expeditionCap(S),selCmd))+')</button><button class="btn sm ghost" onclick="selClear()">✕ پاک کردن</button></div>';
+    h+=owned.map(tid=>{const T=TROOPS[tid],known=it&&!isBoss&&!isSetup,m=known?troopMultVs(tid,t.garrison||{}):1,col=m>1.15?'var(--green)':m<0.88?'var(--red)':'var(--dim)';
+      return '<div class="armyrow"><span>'+T.icon+'</span><b>'+T.name+'</b><span class="cnt">'+CLASS_INFO[TROOP_CLASS[tid]].icon+' موجود: '+fmt(S.troops[tid])+' • ⚔'+T.power+(known?' • <b style="color:'+col+'">🎯×'+m.toFixed(2)+'</b>':'')+'</span>'
       +'<input type="number" min="0" max="'+S.troops[tid]+'" value="'+(selTroops[tid]||0)+'" onchange="setSel(\''+tid+'\',this.value)">'
       +'<button class="btn sm ghost" onclick="selMax(\''+tid+'\')">MAX</button></div>';}).join('');
     h+='<div class="card"><div id="selTotals"></div>'
-    +'<button class="btn wide" onclick="launch(\''+t.id+'\')">🚩 اعزام لشکر به '+t.name+'</button></div>';}
+      +(isSetup?'<button class="btn wide" onclick="deployCamp()">⛺ برپایی کمپ</button>':'<button class="btn wide" onclick="launch(\''+t.id+'\')">'+(isBoss?'🗿 حمله به غول':'🚩 اعزام لشکر به '+t.name)+'</button>')+'</div>';}
   B.innerHTML=h;updateDetailTotals();return;}
+if(cur==='cmd'){
+  const c=ensureCmd(S),lv=S.buildings.find(b=>b.type==='keep')?.level||1,busy=busyCmds(S),nextTok=TOKEN_LEVELS.find(L=>!c.granted.includes(L));
+  let h='<div class="card hero"><div class="bhead">🎖 <b>فرماندهان ارشد</b><span class="lvl">'+c.unlocked.length+'/'+MAX_UNLOCK+'</span></div>'
+    +'<div class="q">🎫 توکن آزاد: <b>'+c.tokens+'</b> • 🏅 نشان ارتقا: <b>'+c.emblems+'</b></div>'
+    +'<div class="q">'+(nextTok?'🎫 توکن بعدی: وقتی قلعه به <b>Lv'+nextTok+'</b> برسد (الان Lv'+lv+')':'همه‌ی ۴ توکن گرفته شد')+'</div>'
+    +'<div class="q">🎖 نشان ارتقا کمیاب و محدود است: از 🕳️ غارها و 💎 گنج‌های پنهان نقشه با شانس کم پیدا می‌شود (نشان‌های باقی‌مانده‌ی این فصل: '+(S.season?S.season.itemPool:0)+'). با 🕵️ جاسوس می‌توانی هاله‌ی آیتم را ببینی.</div></div>';
+  const card=(cm,own)=>{const lvl=c.levels[cm.id]||1,st=busy.has(cm.id),cost=cmdUpCost(lvl);
+    return '<div class="cmdcard" style="--c:'+cm.color+'"><div class="cport">'+cm.icon+'</div><div class="cbody"><div class="trow"><b>'+cm.name+' <span class="chip">'+cm.title+'</span></b>'+(own?'<span class="tpow">Lv'+lvl+'/'+MAX_CMD_LEVEL+(st?' • ⚔ در مأموریت':'')+'</span>':'')+'</div>'
+      +'<div class="q" style="font-style:italic;color:var(--gold)">«'+cm.lure+'»</div>'
+      +'<div class="q">'+fxChips(cm.fx,lvl).map(x=>'<span class="chip">'+x+'</span>').join(' ')+'</div>'
+      +(own?(lvl>=MAX_CMD_LEVEL?'<div class="q">🏆 حداکثر سطح</div>':'<button class="btn sm" '+(c.emblems>=cost?'':'disabled')+' onclick="upCmd(\''+cm.id+'\')">⬆ ارتقا به Lv'+(lvl+1)+' — 🏅'+cost+' نشان</button>')
+        :'<button class="btn sm gold" '+(c.tokens>0&&c.unlocked.length<MAX_UNLOCK?'':'disabled')+' onclick="pickCmd(\''+cm.id+'\')">🎫 انتخاب با ۱ توکن</button>')+'</div></div>';};
+  if(c.unlocked.length)h+='<div class="q"><b>فرماندهان تو</b></div>'+c.unlocked.map(id=>card(CMD[id],true)).join('');
+  h+='<div class="q"><b>'+(c.tokens>0?'یکی را انتخاب کن — بازگشت ندارد':'فرماندهان قابل انتخاب')+'</b></div>'+COMMANDERS.filter(x=>!c.unlocked.includes(x.id)).map(x=>card(x,false)).join('');
+  B.innerHTML=h;}
+if(cur==='boss'){
+  const s=S.season,now=Date.now(),ph=bossPhase(S,now);
+  const done=Math.min(100,Math.floor((now-s.start)/(s.end-s.start)*100));
+  let h='<div class="card hero"><div class="bhead">🏁 <b>فصل '+s.id+'</b><span class="lvl">'+done+'٪</span></div><div class="bar"><i style="width:'+done+'%"></i></div>'
+    +'<div class="q">⏳ پایان فصل: '+fmtDur(s.end-now)+'</div></div>';
+  if(ph==='before'){
+    h+='<div class="card"><b>🗿 غول آخر فصل</b><div class="q">در <b>'+fmtDur(s.bossStart-now)+'</b> دیگر در مرکز نقشه ظاهر می‌شود و ۴۸ ساعت می‌ماند.</div>'
+      +'<div class="q">• نامیرا است؛ هر ضربه به اندازه‌ی حجمش امتیاز می‌دهد و بالاترین امتیازها برنده‌اند<br>• هر ۶ ساعت نقطه‌ضعف عوض می‌شود (×1.6) و یک کلاس هم مقاوم می‌شود (×0.7)<br>• هر ضربه تلفات و مجروح سنگین دارد 🩹<br>• هر ضربه ⚡ انرژی می‌خواهد (روزی ۱۰۰ واحد)<br>• فرماندهان، نشان‌ها و ارتش بزرگ‌تر امتیاز را بالا می‌برند — از الان آماده شو</div></div>';
+  }else{
+    const w=weaknessAt(S,now),rows=bossBoard(S,now),me=rows.find(r=>r.me),total=rows.reduce((a,r)=>a+r.dmg,0);
+    h+='<div class="card danger"><div class="bhead">🗿 <b>غول در مرکز نقشه است!</b><span class="lvl">نامیرا</span></div>'
+      +'<div class="q">🎯 نقطه‌ضعف الان: <b>'+CLS_NAME[w.weak]+'</b> (×1.6) • مقاوم: '+CLS_NAME[w.resist]+' (×0.7)</div><div class="q">🔄 تغییر نقطه‌ضعف تا '+fmtDur(w.nextIn)+'</div>'
+      +'<div class="q">💥 امتیاز شما: <b>'+fmt(S.boss.dmg)+'</b> • '+S.boss.hits+' ضربه • '+(me?'رتبه <b>#'+me.rank+'</b> از '+rows.length:'هنوز ضربه‌ای نزده‌ای')+'</div>'
+      +'<div class="q">🌍 مجموع ضربه‌ی جهان: '+fmt(total)+' • ⚡ انرژی: '+S.energy.v+'</div>'
+      +'<button class="btn wide" onclick="openDetail(\'boss\')">🗿 اعزام لشکر به غول</button></div>';
+    h+='<div class="q"><b>🏆 برترین‌ها</b></div>'+rows.slice(0,10).map(r=>'<div class="res'+(r.me?' me':'')+'"><span class="rank">'+(['🥇','🥈','🥉'][r.rank-1]||'#'+r.rank)+'</span><span class="fdot" style="background:'+r.color+'"></span><div><b>'+r.name+'</b></div><div class="meta"><b style="color:var(--gold)">💥'+fmt(r.dmg)+'</b></div></div>').join('')
+      +(me&&me.rank>10?'<div class="q" style="justify-content:center">⋯</div><div class="res me"><span class="rank">#'+me.rank+'</span><span class="fdot" style="background:#ffd166"></span><div><b>⭐ شما</b></div><div class="meta"><b style="color:var(--gold)">💥'+fmt(me.dmg)+'</b></div></div>':'');
+    h+='<div class="card"><div class="q"><b>🎁 جایزه‌ها</b> (پایان فصل): 🥇 ۳۰۰۰🪙+۴🎖 • ۱۰ نفر برتر ۱۵۰۰🪙+۲🎖 • ۱۰٪ برتر ۸۰۰🪙+۱🎖 • ۵۰٪ برتر ۳۰۰🪙 • شرکت‌کننده ۱۰۰🪙</div></div>';}
+  if(S.pastSeasons&&S.pastSeasons.length)h+='<div class="q"><b>📚 فصل‌های قبل</b></div>'+S.pastSeasons.map(p=>'<div class="q">فصل '+p.season+': '+(p.rank?'رتبه #'+p.rank+' از '+p.total+' • 💥'+fmt(p.dmg):'شرکت نکردی')+' • '+p.label+'</div>').join('');
+  B.innerHTML=h;}
 if(cur==='search'){
   let h='<input id="searchIn" class="sinput" placeholder="🔍 نام قلعه یا قبیله… (مثلاً: اژدها)" value="'+searchQ+'" oninput="doSearch(this.value)">';
   h+='<div class="seg">'+FACTIONS.map(f=>'<button onclick="doSearch(\''+f.name.split('‌')[0]+'\')">'+f.icon+' '+f.name+'</button>').join('')+'</div>';
@@ -406,25 +569,36 @@ window.jumpTo=(id)=>{const t=getTarget(id);if(!t)return;
   $('sheet').hidden=true;$('tabWorld').classList.add('on');$('tabCastle').classList.remove('on');
   R.setView('world');R.centerOn(t.x,t.y);R.zoom=Math.max(R.zoom,1);
   toast('📍 '+t.name+' • Lv'+t.level+' • ⚔'+fmt(t.power));};
-function updateDetailTotals(){const el=$('selTotals');if(!el||!detailId)return;
-  const t=getTarget(detailId);if(!t)return;
-  const army={};let cnt=0;for(const tid in selTroops){const n=selTroops[tid]||0;if(n>0){army[tid]=n;cnt+=n;}}
-  const cap=expeditionCap(S);
-  if(!cnt){el.innerHTML='<div class="q">سربازی انتخاب نشده — از ردیف‌های بالا تعداد را وارد کن</div>';return;}
-  const r=battle(army,{army:t.garrison||{},power:t.power},t.wall||0,15);
-  const ok=r.win&&cnt<=cap;
-  el.innerHTML='<div class="trow"><b>👥 '+fmt(cnt)+'/'+fmt(cap)+'</b><span class="tpow" style="color:'+(ok?'var(--green)':'var(--red)')+'">⚔'+fmt(r.atk)+' در برابر '+fmt(r.def)+' '+(cnt>cap?'⚠️ بیش از ظرفیت':ok?'✅ شانس پیروزی':'⚠️ کافی نیست')+'</span></div>'
-   +'<div class="q">🎯 ضریب تقابل: شما ×'+r.atkMul.toFixed(2)+' • دشمن ×'+r.defMul.toFixed(2)+' • 📉 تلفات تخمینی شما: '+Math.round(r.aLoss*100)+'٪ (۵۵٪ از تلفات مجروح می‌شود 🏥)</div>';}
+function updateDetailTotals(){const el=$('selTotals');if(!el)return;
+  const isSetup=cur==='campSetup',isBoss=!isSetup&&detailId==='boss',t=isSetup?null:(isBoss?BOSS_T:getTarget(detailId));
+  if(!isSetup&&!t)return;
+  const army={};let cnt=0;for(const tid in selTroops){const n=selTroops[tid]||0;if(n>0&&tid!=='spy'){army[tid]=n;cnt+=n;}}
+  const cmd=selCmd&&freeCmds(S).includes(selCmd)?selCmd:null,fx=cmdFx(S,cmd),cap=armyCap(S,expeditionCap(S),cmd),en='⚡ '+energyCost(S,cmd)+' از '+S.energy.v+' انرژی';
+  if(!cnt){el.innerHTML='<div class="q">سربازی انتخاب نشده — از ردیف‌های بالا تعداد را وارد کن • '+en+'</div>';return;}
+  const head=(txt,col)=>'<div class="trow"><b>👥 '+fmt(cnt)+'/'+fmt(cap)+'</b><span class="tpow" style="color:'+col+'">'+txt+'</span></div>';
+  if(isSetup){el.innerHTML=head('⚔ '+fmt(armyPower(army)),cnt>cap?'var(--red)':'var(--green)')+'<div class="q">'+(cmd?CMD[cmd].icon+' '+CMD[cmd].name:'⚠️ فرمانده انتخاب نشده (برای کمپ لازم است)')+' • '+en+'</div>';return;}
+  if(isBoss){const h=bossHit(S,army,fx);
+    el.innerHTML=head('💥 ضربه‌ی تخمینی '+fmt(h.damage),cnt>cap?'var(--red)':'var(--green)')
+     +'<div class="q">🎯 تقابل با نقطه‌ضعف فعلی ×'+h.mult.toFixed(2)+' • 📉 تلفات تخمینی: '+Math.round(h.lossFrac*100)+'٪ (بخشی مجروح 🏥) • '+en+'</div>';return;}
+  const it=intelOf(t);
+  if(!it){el.innerHTML=head('⚔ '+fmt(armyPower(army))+' خام',cnt>cap?'var(--red)':'var(--dim)')+'<div class="q">🕵️ بدون جاسوسی پیش‌بینی دقیق نداری؛ دشمن ≈'+fmt(estPower(t))+' • '+en+'</div>';return;}
+  const r=battle(army,{army:t.garrison||{},power:t.power},t.wall||0,15,battleMods(fx)),ok=r.win&&cnt<=cap;
+  el.innerHTML=head('⚔'+fmt(r.atk)+' در برابر '+fmt(r.def)+' '+(cnt>cap?'⚠️ بیش از ظرفیت':ok?'✅ شانس پیروزی':'⚠️ کافی نیست'),ok?'var(--green)':'var(--red)')
+   +'<div class="q">🎯 ضریب تقابل: شما ×'+r.atkMul.toFixed(2)+' • دشمن ×'+r.defMul.toFixed(2)+' • 📉 تلفات تخمینی: '+Math.round(r.aLoss*100)+'٪ • '+en+'</div>';}
 function openSheet(k){cur=k;$('sheet').hidden=false;
-  $('sheetTitle').textContent={build:'🏗️ ساخت و ارتقا',train:'⚔️ سربازخانه',attack:'🚩 لشکرکشی',detail:'🎯 جزئیات هدف',search:'🔍 جستجو در نقشه',reports:'📜 گزارش‌ها',empire:'👑 امپراتوری',board:'🏆 لیدربرد',hospital:'🏥 بیمارستان',quests:'🎯 ماموریت‌ها و دستاوردها'}[k]||'';
+  $('sheetTitle').textContent={build:'🏗️ ساخت و ارتقا',train:'⚔️ سربازخانه',attack:'🚩 لشکرکشی',detail:'🎯 جزئیات هدف',search:'🔍 جستجو در نقشه',reports:'📜 گزارش‌ها',empire:'👑 امپراتوری',board:'🏆 لیدربرد',hospital:'🏥 بیمارستان',quests:'🎯 ماموریت‌ها و دستاوردها',cmd:'🎖 فرماندهان ارشد',boss:'🗿 غول آخر فصل',campSetup:'⛺ برپایی کمپ'}[k]||'';
   renderSheet();}
-document.querySelectorAll('#dock button').forEach(b=>b.onclick=()=>openSheet(b.dataset.act));
+document.querySelectorAll('#dock button').forEach(b=>b.onclick=()=>{if(b.dataset.act==='attack')detailCamp=null;openSheet(b.dataset.act);});
 $('sheetClose').onclick=()=>$('sheet').hidden=true;
 $('btnSearch').onclick=()=>openSheet('search');
 $('btnHome2').onclick=()=>{$('tabWorld').classList.add('on');$('tabCastle').classList.remove('on');R.setView('world');R.centerOn(S.homePos.x,S.homePos.y);};
 $('zin').onclick=()=>R.zoomBy(1.3);
 $('zout').onclick=()=>R.zoomBy(0.77);
 R.onTap=(hit)=>{
+  if(hit.kind==='empty'){const err=campSpotError(S,R.terr,hit.wx,hit.wy);if(err)return toast('⛺ '+err);
+    campDraft={x:hit.wx,y:hit.wy};cancelCamp();selTroops={};openSheet('campSetup');return;}
+  if(hit.kind==='boss'){openSheet('boss');return;}
+  if(hit.kind==='camp'){useCamp(hit.camp.id);return;}
   if(hit.kind==='minimap'){R.centerOn(hit.wx,hit.wy);R.hl=null;return;}
   if(hit.kind==='tribe'){openDetail(hit.tribe.id);}
   if(hit.kind==='site'){openDetail(hit.site.id);}
@@ -440,6 +614,12 @@ $('btnHelp').onclick=()=>{const h=$('helpBox');h.hidden=!h.hidden;};
 let tickN=0;
 setInterval(()=>{
   tickN++;const now=Date.now();
+  ensureEnergy(S,now);
+  for(const e of ensureSeason(S,now)){
+    if(e.type==='spawn'){addLog(S,'win','🗿 غول آخر فصل در مرکز نقشه ظاهر شد! ۴۸ ساعت فرصت داری');toast('🗿 <b>غول آخر فصل ظاهر شد!</b>');}
+    if(e.type==='end'){const r=e.res;addLog(S,'win','🏁 فصل '+r.season+' تمام شد — رتبه '+(r.rank||'—')+' از '+r.total+' • '+r.label+' • 🪙'+r.gold+(r.emblems?' • 🎖×'+r.emblems:''));toast('🏁 فصل تمام شد: '+r.label+(r.rank?' (#'+r.rank+')':''));}}
+  R.bossOn=bossPhase(S,now)==='active';
+  const tk=grantTokens(S);if(tk.length){addLog(S,'info','🎫 توکن فرمانده گرفتی (قلعه Lv'+tk.join('، ')+')');toast('🎫 <b>توکن فرمانده ارشد</b> گرفتی! از 🎖 انتخاب کن');}
   if(tickN%5===0)npcTick(S,Math.random,25);
   if(tickN%10===0)npcGrow(S,Math.random,40);
   if(tickN%NPC.warEverySec===0)startWar(S,Math.random);
@@ -458,13 +638,21 @@ setInterval(()=>{
     addLog(S,'info','🏥 '+fmt(hj.count)+'× '+TROOPS[hj.tid].name+' درمان شدند');toast('🏥 '+fmt(hj.count)+'× '+TROOPS[hj.tid].name+' درمان شدند');}}
   for(const m of[...S.marches]){m.travelLeft-=1;
     if(m.travelLeft<=0){S.marches=S.marches.filter(x=>x!==m);
-      if(m.returning){for(const tid in m.army)S.troops[tid]=(S.troops[tid]||0)+m.army[tid];addLog(S,'info','🏳️ لشکر به خانه بازگشت');toast('🏳️ لشکر به خانه بازگشت');}
+      if(m.returning){const kc=m.toCamp&&S.camps.find(k=>k.id===m.toCamp),dst=kc?kc.army:S.troops;for(const tid in m.army)dst[tid]=(dst[tid]||0)+m.army[tid];
+        addLog(S,'info',kc?'⛺ لشکر به کمپ بازگشت':'🏳️ لشکر به خانه بازگشت');toast(kc?'⛺ لشکر به کمپ بازگشت':'🏳️ لشکر به خانه بازگشت');}
       else resolveMarch(m);}}
   // دنیای NPC: جنگ با هم، جایگزینی قوی‌تر، حمله به من
   for(const m of[...S.npcMarches]){m.left-=1;
     if(m.left<=0){S.npcMarches=S.npcMarches.filter(x=>x!==m);const o=resolveWar(S,m,now,Math.random);
       if(o&&o.type==='fall'&&Math.hypot(o.B.x-S.homePos.x,o.B.y-S.homePos.y)<70)addLog(S,'info','⚔️ '+o.A.name+' قلعه '+o.B.name+' را نابود کرد — به‌زودی قلعه‌ای قوی‌تر جایش می‌آید');}}
   processRespawns(S,now,Math.random);
+  for(const a of campAmbush(S)){
+    addWounded(S,a.lost,homeFx(S,'heal'));
+    if(a.win&&a.kind==='raid'){const t0=S.tribes.find(x=>x.id===a.ref.from);S.kills=(S.kills||0)+armyCount(a.ref.army);bump(S,'defended');
+      if(t0){scaleTribe(t0,0.6);for(const k in t0.loot)S.resources[k]=(S.resources[k]||0)+Math.floor(t0.loot[k]*0.25);}
+      addLog(S,'win','⛺ کمپ شما لشکر '+a.ref.name+' را کمین کرد و حمله به قلعه‌ات را خنثی کرد!');toast('⛺ <b>کمین موفق!</b> حمله '+a.ref.name+' خنثی شد');}
+    else if(a.win)addLog(S,'win','⛺ کمپ شما یک لشکر در حال جنگ NPCها را کمین کرد');
+    else if(a.kind==='raid')addLog(S,'lose','⛺ کمین ناموفق: لشکر دشمن از کمپ گذشت و به راهش ادامه می‌دهد');}
   const raid=maybeRaid(S,now,Math.random);
   if(raid){addLog(S,'lose','⚠️ '+raid.name+' با ⚔'+fmt(raid.power)+' به قلعه‌ات لشکر کشید — '+Math.ceil(raid.left)+' ثانیه تا رسیدن!');
     toast('⚠️ <b>حمله دشمن!</b> '+raid.name+' — '+Math.ceil(raid.left)+'ث');}

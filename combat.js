@@ -1,11 +1,11 @@
 import{TROOPS,TROOP_CLASS,COUNTER,CLASS_INFO}from'./config.js';
-export function armyPower(tr){let p=0;for(const k in tr)p+=(TROOPS[k]?.power||0)*(tr[k]||0);return p;}
+export function armyPower(tr){let p=0;for(const k in tr){if(TROOP_CLASS[k]==='spy')continue;p+=(TROOPS[k]?.power||0)*(tr[k]||0);}return p;}
 export function armyCount(tr){let n=0;for(const k in tr)n+=tr[k]||0;return n;}
 
 // ساخت گارد دفاعی قلعه بر اساس سطح آن (۲ تا ۴ نوع نیرو، قطعی با rng)
 export function genGarrison(level,rng){
   const maxUnlock=Math.max(1,Math.min(24,level+2));
-  const avail=Object.keys(TROOPS).filter(t=>TROOPS[t].unlock<=maxUnlock);
+  const avail=Object.keys(TROOPS).filter(t=>TROOPS[t].unlock<=maxUnlock&&t!=='spy');
   const nTypes=Math.min(avail.length,2+Math.floor(rng()*3));
   const pool=[...avail],picks=[];
   while(picks.length<nTypes)picks.push(pool.splice(Math.floor(rng()*pool.length),1)[0]);
@@ -21,7 +21,7 @@ export function genGarrison(level,rng){
 // سهم قدرت هر کلاس در یک ارتش
 export function classShares(army){
   const s={inf:0,spear:0,archer:0,cav:0,siege:0};let tot=0;
-  for(const k in army){const n=army[k]||0;if(!n||!TROOPS[k])continue;const p=n*TROOPS[k].power;s[TROOP_CLASS[k]]+=p;tot+=p;}
+  for(const k in army){const n=army[k]||0;if(!n||!TROOPS[k]||TROOP_CLASS[k]==='spy')continue;const p=n*TROOPS[k].power;s[TROOP_CLASS[k]]+=p;tot+=p;}
   if(tot>0)for(const c in s)s[c]/=tot;
   return s;}
 // ضریب میانگین قدرت ارتش a در برابر ارتش b
@@ -43,19 +43,22 @@ export function bestCounters(army){
 function losses(army,f){const o={};for(const k in army){const n=Math.floor((army[k]||0)*f+0.5);if(n>0)o[k]=Math.min(n,army[k]);}return o;}
 
 // نبرد: def = {army, power?} ، wall = سطح دیوار ، wallK = قدرت هر سطح دیوار
-export function battle(att,def,wall=0,wallK=15){
+// mods: {atk, cls:{cav:1.3}, wallIgnore, lossMul} — اثر فرمانده ارشد و غافلگیری
+export function battle(att,def,wall=0,wallK=15,mods={}){
   const defArmy=def.army||{};
-  let atkRaw=armyPower(att);
+  let atkRaw=0;for(const k in att){if(!TROOPS[k]||TROOP_CLASS[k]==='spy')continue;atkRaw+=att[k]*TROOPS[k].power*((mods.cls&&mods.cls[TROOP_CLASS[k]])||1);}
+  atkRaw*=(mods.atk||1);
   if((att.royal||0)>0)atkRaw*=1.15;else if((att.knight||0)>0)atkRaw*=1.1;
   const defBase=def.power!=null?def.power:armyPower(defArmy);
   const siege=classShares(att).siege;
-  const wallBonus=wall*wallK*(1-Math.min(0.7,siege*0.9));
+  const wallBonus=wall*wallK*(1-Math.min(0.7,siege*0.9))*(1-(mods.wallIgnore||0));
   const mA=counterMult(att,defArmy),mD=counterMult(defArmy,att);
   const A=atkRaw*mA,D=(defBase+wallBonus)*mD;
   const win=A>D*1.02;
   let aLoss,dLoss;
   if(win){aLoss=Math.min(0.6,0.03+0.5*Math.pow(Math.min(1,D/Math.max(1,A)),1.5));dLoss=1;}
   else{const r=Math.min(1,A/Math.max(1,D));aLoss=Math.min(0.9,0.45+0.5*(1-r));dLoss=Math.min(0.6,0.6*r);}
+  aLoss=Math.max(0.01,Math.min(0.95,aLoss*(mods.lossMul??1)));
   return{win,atk:Math.floor(A),def:Math.floor(D),atkMul:mA,defMul:mD,aLoss,dLoss,
     attLosses:losses(att,aLoss),defLosses:losses(defArmy,dLoss)};}
 

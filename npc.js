@@ -18,6 +18,7 @@ export function buildTribe(id,name,x,y,level,rng,buff=1){
     loot:{food:Math.floor(3000*level*(0.8+rng()*0.5)),wood:Math.floor(2500*level*(0.8+rng()*0.5)),
       stone:Math.floor(2000*level*(0.8+rng()*0.5)),iron:Math.floor(1200*level*(0.8+rng()*0.5)),gold:Math.floor(35*level*(0.8+rng()*0.6))}};
   t.kills=npcKillsInit(garrison,rng);
+  t.spies=Math.floor(level*6*(0.6+rng()*0.8));
   if(buff!==1)scaleTribe(t,buff);
   t.base=t.power;return t;}
 

@@ -16,7 +16,9 @@ function siteLoot(kind,level,rng){
 function fillSite(s,rng){
   s.garrison=genGarrison(s.level,rng);
   s.power=Math.floor(armyPower(s.garrison)*1.1);
-  s.loot=siteLoot(s.kind,s.level,rng);}
+  s.loot=siteLoot(s.kind,s.level,rng);
+  s.spies=Math.floor(s.level*5*(0.6+rng()*0.8));
+  s.item=rng()<0.13;} // نشان ارتقای فرمانده: پنهان و کمیاب
 
 // گنج‌ها و غارها در قلب نقشه — دور از قلعه‌ها
 export function genSites(terr,tribes,home,rng,count=30){

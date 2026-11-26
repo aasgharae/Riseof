@@ -42,13 +42,14 @@ knight:{name:'شوالیه',icon:'⚜️',cost:{food:160,iron:90,stone:40},time:
 royal:{name:'گارد سلطنتی',icon:'👑',cost:{food:220,iron:130,stone:80},time:55,power:60,unlock:14},
 ram:{name:'دژکوب',icon:'🐏',cost:{wood:260,iron:110,stone:120},time:60,power:70,unlock:17},
 ballista:{name:'بالیستا',icon:'🎯',cost:{wood:220,iron:130},time:65,power:82,unlock:20},
-catapult:{name:'منجنیق',icon:'💣',cost:{wood:280,stone:220,iron:100},time:80,power:105,unlock:24}};
+catapult:{name:'منجنیق',icon:'💣',cost:{wood:280,stone:220,iron:100},time:80,power:105,unlock:24},
+spy:{name:'جاسوس',icon:'🕵️',cost:{food:90,wood:50,iron:15},time:22,power:1,unlock:4}};
 
 // ---- کلاس نیروها و تقابل: پیاده > نیزه‌دار > سواره > کماندار > پیاده (چرخه) ----
 export const TROOP_CLASS={swordsman:'inf',axeman:'inf',guard:'inf',spearman:'spear',archer:'archer',
- cavalry:'cav',camel:'cav',knight:'cav',royal:'cav',ram:'siege',ballista:'siege',catapult:'siege'};
+ cavalry:'cav',camel:'cav',knight:'cav',royal:'cav',ram:'siege',ballista:'siege',catapult:'siege',spy:'spy'};
 export const CLASS_INFO={inf:{name:'پیاده',icon:'🗡️'},spear:{name:'نیزه‌دار',icon:'🔱'},archer:{name:'کماندار',icon:'🏹'},
- cav:{name:'سواره',icon:'🐎'},siege:{name:'محاصره',icon:'💣'}};
+ cav:{name:'سواره',icon:'🐎'},siege:{name:'محاصره',icon:'💣'},spy:{name:'جاسوس',icon:'🕵️'}};
 // COUNTER[مهاجم][مدافع] = ضریب قدرت مهاجم در برابر آن کلاس
 export const COUNTER={
  inf:{inf:1,spear:1.5,archer:0.75,cav:1,siege:1.3},
@@ -104,3 +105,11 @@ export const EXTRA_NAMES=['گرگ','شاهین','اژدها','پلنگ','عقا�
 // ---- NPC: رشد، جنگ بین خودشان، حمله به بازیکن ----
 export const NPC={buff:2.6,growCap:4.5,growStep:1.018,warEverySec:12,raidMinSec:150,raidMaxSec:330,firstRaidSec:240,raidSpeed:1.3,warSpeed:3,
  respawnMinSec:45,respawnMaxSec:120,siteCooldownSec:480};
+
+// ---- انرژی روزانه، فصل، غول، کمپ ----
+export const ENERGY={max:100,move:5,spy:2};           // هر جابجایی لشکر ۵ واحد از ۱۰۰ واحد روزانه
+export const INTEL_TTL=600;                           // ثانیه اعتبار اطلاعات جاسوسی
+export const SEASON={days:30,bossHours:48,rotHours:6,itemPool:20,maxHits:16};
+export const CAMP={surprise:0.2,wallIgnore:0.3,speed:0.5,radius:9};
+export const maxCamps=s=>{const m=s.buildings.find(b=>b.type==='muster')?.level||1;return 1+(m>=12?1:0)+(m>=24?1:0);};
+export const BOSS_POS={x:WORLD_W/2,y:WORLD_H/2};
