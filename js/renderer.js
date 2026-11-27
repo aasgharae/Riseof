@@ -75,16 +75,11 @@ export class Renderer{
   centerOn(x,y){this.view='world';this.camX=x;this.camY=y;this.vx=0;this.vy=0;this._inertia=false;
     this.hl={x,y,until:performance.now()+4500};}
   zoomBy(f){this.zoom=Math.min(this.maxZoom,Math.max(this.minZoom,this.zoom*f));}
-  _miniRect(W,H){const mw=Math.min(W*0.30,360),mh=mw*WORLD_H/WORLD_W;return{x:12,y:12,w:mw,h:mh};}
   hitTest(cx,cy){
     if(!this.S)return null;
     if(this.view!=='world'){const W=this.cv.width,H=this.cv.height,u=this._ppu()*this.zoom;
       return this.scene.hit(this.S,cx*2,cy*2,W,H,u,{x:this.ccx,y:this.ccy});}
     const W=this.cv.width;
-    const mr=this._miniRect(W,this.cv.height);
-    const px2=cx*2,py2=cy*2;
-    if(px2>=mr.x&&px2<=mr.x+mr.w&&py2>=mr.y&&py2<=mr.y+mr.h)
-      return{kind:'minimap',wx:(px2-mr.x)/mr.w*WORLD_W,wy:(py2-mr.y)/mr.h*WORLD_H};
     const ppu=this._ppu()*this.zoom;
     const scr=(wx,wy)=>[(wx-this.camX)*ppu+W/2,(wy-this.camY)*ppu+this.cv.height/2];
     const test=(x,y,s)=>{const[px,py]=scr(x,y);const dx=px2-px,dy=py2-py;s=Math.max(s,26);return dx*dx+dy*dy<s*s;};
@@ -342,7 +337,6 @@ export class Renderer{
     if((this.S.incoming||[]).length&&this.S.homePos){
       const[hx,hy]=scr(this.S.homePos.x,this.S.homePos.y),rr=Math.max(34,ppu*2.2)*(1+0.12*Math.sin(this.t*6));
       c.strokeStyle='rgba(255,70,70,.8)';c.lineWidth=4;c.beginPath();c.arc(hx,hy-ppu*0.3,rr,0,7);c.stroke();}
-    this._drawMini(c,W,H);
     this._vignette(c,W,H);
     c.fillStyle='rgba(255,245,220,.75)';c.font='12px Vazirmatn';c.textAlign='center';
     c.fillText('برای جابه‌جایی بکشید • زوم با دو انگشت یا اسکرول • ضربه روی مینی‌مپ = پرش',W/2,H-14);}
@@ -359,28 +353,6 @@ export class Renderer{
     c.strokeStyle='rgba(255,209,102,.4)';c.lineWidth=1;c.stroke();
     c.fillStyle=color;c.fillText(l1,px,py+lh);
     c.fillStyle='#ffd166';c.fillText(l2,px,py+lh*2+2);}
-  _drawMini(c,W,H){
-    const mr=this._miniRect(W,H);
-    c.fillStyle='rgba(10,14,20,.75)';c.beginPath();c.roundRect(mr.x-5,mr.y-5,mr.w+10,mr.h+10,10);c.fill();
-    c.imageSmoothingEnabled=true;c.drawImage(this._bake,mr.x,mr.y,mr.w,mr.h);
-    if(this.S){
-      for(const tr of this.S.tribes){
-        c.fillStyle=tr.color||'#e5484d';
-        c.fillRect(mr.x+tr.x/WORLD_W*mr.w-1,mr.y+tr.y/WORLD_H*mr.h-1,2.5,2.5);}
-      for(const k of this.S.camps||[]){c.fillStyle='#3f8bd6';c.fillRect(mr.x+k.x/WORLD_W*mr.w-3,mr.y+k.y/WORLD_H*mr.h-3,6,6);}
-      if(this.bossOn){c.fillStyle='#ff5a28';c.strokeStyle='#000';c.lineWidth=1;c.beginPath();c.arc(mr.x+BOSS_POS.x/WORLD_W*mr.w,mr.y+BOSS_POS.y/WORLD_H*mr.h,5,0,7);c.fill();c.stroke();}
-      if(this.S.homePos){
-        const hx=mr.x+this.S.homePos.x/WORLD_W*mr.w, hy=mr.y+this.S.homePos.y/WORLD_H*mr.h;
-        c.fillStyle='#ffd166';c.beginPath();c.arc(hx,hy,4,0,7);c.fill();
-        c.strokeStyle='#000';c.lineWidth=1;c.stroke();}
-      // viewport rectangle
-      const vw=this.cv.width/this._ppu()/this.zoom/WORLD_W*mr.w, vh=this.cv.height/this._ppu()/this.zoom/WORLD_H*mr.h;
-      c.strokeStyle='rgba(255,255,255,.8)';c.lineWidth=1.5;
-      c.strokeRect(mr.x+this.camX/WORLD_W*mr.w-vw/2,mr.y+this.camY/WORLD_H*mr.h-vh/2,vw,vh);
-    }
-    c.strokeStyle='rgba(255,209,102,.5)';c.lineWidth=2;
-    c.beginPath();c.roundRect(mr.x-5,mr.y-5,mr.w+10,mr.h+10,10);c.stroke();}
-
   drawCastleView(c,W,H,ppu){
     if(!this.S)return;
     this.zoom=Math.max(0.85,Math.min(2.8,this.zoom));
