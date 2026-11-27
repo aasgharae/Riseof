@@ -8,6 +8,7 @@ import {BOSS_POS} from '../config.js';
 export {drawBuilding} from './buildings.js';
 import {FACTIONS} from '../config.js';
 import {armyPower} from '../combat.js';
+import {pointOnRoute} from './pathfinding.js';
 
 const COL=['#3d6a8f','#4a7fa5','#e5d5a0','#a8b06e','#9aa763','#7d8f4e','#5f7a42','#a39a63','#8f8a70','#dfe7ee'];
 
@@ -234,13 +235,14 @@ export class Renderer{
     for(let i=0;i<6;i++){const ex=((i*733+this.t*14*(1+i%3*0.4))%(W+900))-450,ey=(i*421)%H;
       c.beginPath();c.ellipse(ex,ey,260+i*40,110+i*18,0,0,7);c.fill();}
     // خط‌چین مسیر لشکرها: مال من (طلایی/سبز)، حمله دشمن به من (قرمز)، جنگ NPCها (کم‌رنگ)
-    const S0=this.S,dash=(x0,y0,x1,y1,col,w,al,on,off,doff)=>{const[a,b]=scr(x0,y0),[e,f]=scr(x1,y1);
-      c.save();c.globalAlpha=al;c.strokeStyle=col;c.lineWidth=w;c.setLineDash([on,off]);c.lineDashOffset=doff;c.lineCap='round';
-      c.beginPath();c.moveTo(a,b);c.lineTo(e,f);c.stroke();c.restore();};
+    const S0=this.S,dash=(x0,y0,x1,y1,col,w,al,on,off,doff,route=null)=>{
+      c.save();c.globalAlpha=al;c.strokeStyle=col;c.lineWidth=w;c.setLineDash([on,off]);c.lineDashOffset=doff;c.lineCap='round';c.lineJoin='round';
+      c.beginPath();if(route?.length){const[a,b]=scr(route[0].x,route[0].y);c.moveTo(a,b);for(let i=1;i<route.length;i++){const[e,f]=scr(route[i].x,route[i].y);c.lineTo(e,f);}}
+      else{const[a,b]=scr(x0,y0),[e,f]=scr(x1,y1);c.moveTo(a,b);c.lineTo(e,f);}c.stroke();c.restore();};
     if(S0){
-      for(const m of S0.npcMarches||[])dash(m.x0,m.y0,m.x1,m.y1,m.color,2.5,0.5,8,8,-this.t*40);
-      for(const m of S0.marches||[])dash(m.hx,m.hy,m.tx,m.ty,m.returning?'#6fd47a':'#ffd166',Math.max(3,ppu*0.1),0.9,13,9,-this.t*60*(m.returning?-1:1));
-      for(const r of S0.incoming||[])dash(r.fx,r.fy,S0.homePos.x,S0.homePos.y,'#ff4d4d',Math.max(4,ppu*0.13),0.6+0.35*Math.sin(this.t*7),13,9,-this.t*70);
+      for(const m of S0.npcMarches||[])dash(m.x0,m.y0,m.x1,m.y1,m.color,2.5,0.5,8,8,-this.t*40,m.route);
+      for(const m of S0.marches||[])dash(m.hx,m.hy,m.tx,m.ty,m.returning?'#6fd47a':'#ffd166',Math.max(3,ppu*0.1),0.9,13,9,-this.t*60*(m.returning?-1:1),m.route);
+      for(const r of S0.incoming||[])dash(r.fx,r.fy,S0.homePos.x,S0.homePos.y,'#ff4d4d',Math.max(4,ppu*0.13),0.6+0.35*Math.sin(this.t*7),13,9,-this.t*70,r.route);
       // گنج‌ها و غارها
       const now=Date.now();
       for(const st of S0.sites||[]){
@@ -314,14 +316,16 @@ export class Renderer{
     // لشکرهای در حرکت
     for(const m of this.S.marches||[]){
       const prog=1-(m.travelLeft/m.travelTotal);
-      const mx=m.hx+(m.tx-m.hx)*prog,my=m.hy+(m.ty-m.hy)*prog;
+      const pos=m.route?pointOnRoute(m.route,prog):{x:m.hx+(m.tx-m.hx)*prog,y:m.hy+(m.ty-m.hy)*prog};
+      const mx=pos.x,my=pos.y;
       const[px,py]=scr(mx,my),r=Math.max(7,ppu*0.3);
       c.fillStyle='rgba(0,0,0,.3)';c.beginPath();c.ellipse(px,py+4,r*1.3,r*0.45,0,0,7);c.fill();
       c.fillStyle=m.returning?'#46a758':'#e5484d';c.beginPath();c.arc(px,py,r,0,7);c.fill();
       c.fillStyle='#fff';c.font=`bold ${Math.max(10,r*1.2)}px Vazirmatn`;c.textAlign='center';c.fillText(m.returning?'🏳':'⚔',px,py+r*0.4);}
     // دسته‌های سرباز در حال حرکت
-    const squad=(x0,y0,x1,y1,prog,color,label,labelBg)=>{
-      const mx=x0+(x1-x0)*prog,my=y0+(y1-y0)*prog,[px,py]=scr(mx,my);
+    const squad=(x0,y0,x1,y1,prog,color,label,labelBg,route=null)=>{
+      const pos=route?pointOnRoute(route,prog):{x:x0+(x1-x0)*prog,y:y0+(y1-y0)*prog};
+      const mx=pos.x,my=pos.y,[px,py]=scr(mx,my);
       if(px<-80||px>W+80||py<-80||py>H+80)return;
       if(ppu<6){c.fillStyle=color;c.strokeStyle='#000';c.lineWidth=1.5;c.beginPath();c.arc(px,py,6,0,7);c.fill();c.stroke();return;}
       const sz=Math.max(26,ppu*1.15);
@@ -329,11 +333,11 @@ export class Renderer{
       if(label&&this.zoom>=0.3){c.font='bold 12px Vazirmatn';const w=c.measureText(label).width+12;
         c.fillStyle=labelBg;c.beginPath();c.roundRect(px-w/2,py+sz*0.3,w,18,9);c.fill();
         c.fillStyle='#fff';c.textAlign='center';c.fillText(label,px,py+sz*0.3+13);}};
-    for(const m of this.S.npcMarches||[])squad(m.x0,m.y0,m.x1,m.y1,1-m.left/m.total,m.color,null,'rgba(0,0,0,.6)');
+    for(const m of this.S.npcMarches||[])squad(m.x0,m.y0,m.x1,m.y1,1-m.left/m.total,m.color,null,'rgba(0,0,0,.6)',m.route);
     for(const m of this.S.marches||[]){const lab=(m.returning?'🏳 ':'⚔ ')+this._fmt(Object.values(m.army).reduce((a,b)=>a+b,0));
-      squad(m.hx,m.hy,m.tx,m.ty,1-m.travelLeft/m.travelTotal,m.returning?'#46a758':'#f2b84b',lab,m.returning?'rgba(30,110,50,.85)':'rgba(120,80,10,.85)');}
+      squad(m.hx,m.hy,m.tx,m.ty,1-m.travelLeft/m.travelTotal,m.returning?'#46a758':'#f2b84b',lab,m.returning?'rgba(30,110,50,.85)':'rgba(120,80,10,.85)',m.route);}
     for(const r of this.S.incoming||[]){
-      squad(r.fx,r.fy,this.S.homePos.x,this.S.homePos.y,1-r.left/r.total,'#e5484d','⚠ '+this._fmt(Object.values(r.army).reduce((a,b)=>a+b,0))+' • '+Math.ceil(r.left)+'ث','rgba(150,20,20,.9)');}
+      squad(r.fx,r.fy,this.S.homePos.x,this.S.homePos.y,1-r.left/r.total,'#e5484d','⚠ '+this._fmt(Object.values(r.army).reduce((a,b)=>a+b,0))+' • '+Math.ceil(r.left)+'ث','rgba(150,20,20,.9)',r.route);}
     if((this.S.incoming||[]).length&&this.S.homePos){
       const[hx,hy]=scr(this.S.homePos.x,this.S.homePos.y),rr=Math.max(34,ppu*2.2)*(1+0.12*Math.sin(this.t*6));
       c.strokeStyle='rgba(255,70,70,.8)';c.lineWidth=4;c.beginPath();c.arc(hx,hy-ppu*0.3,rr,0,7);c.stroke();}
