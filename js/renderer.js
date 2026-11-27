@@ -13,6 +13,12 @@ import {pointOnRoute} from './pathfinding.js';
 const COL=['#3d6a8f','#4a7fa5','#e5d5a0','#a8b06e','#9aa763','#7d8f4e','#5f7a42','#a39a63','#8f8a70','#dfe7ee'];
 
 const WORLD_TILE_PX=30; // پیکسل کنواس برای هر تایل در زوم ۱
+
+// مختصات رویداد pointer برحسب CSS pixel هستند، اما Canvas با DPR=2 رسم می‌شود.
+export function isWithinHitRadius(pointerX,pointerY,targetX,targetY,radius){
+  const dx=pointerX-targetX,dy=pointerY-targetY;
+  return dx*dx+dy*dy<radius*radius;
+}
 export const WORLD_ENTRY_ZOOM=1; // زوم موقع ورود به نقشه جهان (روی قلعه خودت)
 
 export class Renderer{
@@ -83,7 +89,7 @@ export class Renderer{
     const W=this.cv.width;
     const ppu=this._ppu()*this.zoom;
     const scr=(wx,wy)=>[(wx-this.camX)*ppu+W/2,(wy-this.camY)*ppu+this.cv.height/2];
-    const test=(x,y,s)=>{const[px,py]=scr(x,y);const dx=px2-px,dy=py2-py;s=Math.max(s,26);return dx*dx+dy*dy<s*s;};
+    const test=(x,y,s)=>{const[px,py]=scr(x,y);s=Math.max(s,26);return isWithinHitRadius(cx*2,cy*2,px,py,s);};
     if(this.S.homePos&&test(this.S.homePos.x,this.S.homePos.y,ppu*1.6))return{kind:'home'};
     if(this.bossOn&&test(BOSS_POS.x,BOSS_POS.y-ppu*1.5,ppu*3))return{kind:'boss'};
     for(const k of this.S.camps||[]){if(test(k.x,k.y,ppu*1.2))return{kind:'camp',camp:k};}
