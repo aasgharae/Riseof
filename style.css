@@ -14,8 +14,8 @@ button.ghost{background:var(--card)!important;color:var(--txt)!important;border:
 #mapWrap{position:absolute;inset:0}
 #cv{position:absolute;inset:0;width:100%;height:100%;height:100dvh;background:#c9b98a;touch-action:none;cursor:grab;display:block}
 /* تاپ‌بار شفاف دوخطی روی نقشه */
-#topbar{position:absolute;top:calc(env(safe-area-inset-top,0px) + 6px);right:6px;left:6px;z-index:5;display:flex;flex-direction:column;gap:4px;pointer-events:none}
-.tline{display:flex;gap:5px;flex-wrap:nowrap;overflow-x:auto;pointer-events:auto;scrollbar-width:none}
+#topbar{position:absolute;top:calc(env(safe-area-inset-top,0px) + 6px);right:6px;left:58px;z-index:5;display:flex;flex-direction:column;gap:4px;pointer-events:none;min-width:0}
+.tline{display:flex;gap:5px;flex-wrap:nowrap;overflow-x:auto;pointer-events:auto;scrollbar-width:none;min-width:0;max-width:100%;padding-bottom:2px}
 .tline::-webkit-scrollbar{display:none}
 .tline span{background:rgba(14,19,26,.82);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:14px;padding:3px 9px;white-space:nowrap;font-size:12px;font-weight:700}
 #dayLabel{color:var(--gold);border-color:rgba(255,201,77,.35)!important}
@@ -27,8 +27,8 @@ button.ghost{background:var(--card)!important;color:var(--txt)!important;border:
 #zoomCtl{position:absolute;left:8px;bottom:86px;display:flex;flex-direction:column;gap:6px;z-index:4}
 #zoomCtl button{width:40px;height:40px;border-radius:12px;border:1px solid rgba(90,74,42,.7);background:rgba(30,25,12,.82);color:#ffd166;font-size:19px;font-weight:800;cursor:pointer;backdrop-filter:blur(4px)}
 /* داک پایین: فقط آیکن */
-#dock{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);left:50%;transform:translateX(-50%);display:flex;gap:2px;background:rgba(22,30,41,.94);border:1px solid var(--line);border-radius:20px;padding:8px 10px;box-shadow:0 10px 30px rgba(0,0,0,.45);backdrop-filter:blur(8px);z-index:6}
-#dock button{position:relative;background:none;border:0;color:var(--txt);display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:44px;height:46px;cursor:pointer;border-radius:12px;padding:0 4px}
+#dock{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);left:8px;right:8px;max-width:100%;display:flex;gap:2px;overflow-x:auto;overflow-y:hidden;justify-content:flex-start;scrollbar-width:none;background:rgba(22,30,41,.96);border:1px solid var(--line);border-radius:16px;padding:7px 8px;box-shadow:0 10px 30px rgba(0,0,0,.45);backdrop-filter:blur(8px);z-index:6;overscroll-behavior-x:contain}
+#dock button{position:relative;flex:0 0 44px;background:none;border:0;color:var(--txt);display:flex;flex-direction:column;align-items:center;justify-content:center;width:44px;min-width:44px;height:46px;cursor:pointer;border-radius:12px;padding:0 4px}
 #dock button:active{background:var(--card2)}
 #dock em{font-style:normal;font-size:22px;line-height:1}
 .badge{position:absolute;top:0;right:2px;min-width:17px;height:17px;border-radius:9px;background:#e5484d;color:#fff;font-style:normal;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;box-shadow:0 0 0 2px #151b26}
@@ -128,3 +128,18 @@ button.ghost{background:var(--card)!important;color:var(--txt)!important;border:
 .admrow{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:10px;margin:8px 0}
 textarea.sinput{resize:vertical;line-height:1.8}
 .pmbadge{min-width:18px;height:18px;border-radius:9px;background:#e5484d;color:#fff;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;margin-inline-start:6px}
+
+/* Mobile HUD hardening */
+@media(max-width:520px){
+  #topbar{left:58px;right:5px;gap:3px}
+  .tline{gap:3px}
+  .tline span{font-size:10px;padding:3px 6px;border-radius:11px}
+  #mapBtns{left:5px;gap:5px}
+  #mapBtns button{width:46px;height:46px}
+  #dock{left:6px;right:6px;bottom:calc(env(safe-area-inset-bottom,0px) + 6px);border-radius:14px}
+  #dock em{font-size:21px}
+  #zoomCtl{bottom:calc(env(safe-area-inset-bottom,0px) + 78px)}
+}
+#sheetBody .map-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+#sheetBody .map-action{min-height:76px;border:1px solid var(--line);border-radius:14px;background:var(--card2);color:var(--txt);font-size:14px;font-weight:800;cursor:pointer}
+#sheetBody .map-action:disabled{opacity:.38;cursor:not-allowed}

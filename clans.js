@@ -35,6 +35,30 @@ export function joinClan(S,clanId,who='me'){
   if(who==='me')S.myClan=clanId;
   addSys(S,'🏳 '+(p?.name||who)+' به قبیله «'+c.name+'» پیوست');
   save(S);return true;}
+// درخواست عضویت: تا زمان تأیید مدیر، بازیکن عضو قبیله نمی‌شود.
+export function requestClan(S,clanId,who='me'){
+  const c=clanById(S,clanId);if(!c)return{ok:false,msg:'قبیله پیدا نشد'};
+  if(c.members.length>=CLAN_MAX_CASTLES)return{ok:false,msg:'ظرفیت قبیله پر است'};
+  if(c.members.includes(who))return{ok:false,msg:'عضو این قبیله هستی'};
+  if(S.clans.some(x=>x.members.includes(who)))return{ok:false,msg:'ابتدا باید از قبیله فعلی خارج شوی'};
+  S.clanRequests=Array.isArray(S.clanRequests)?S.clanRequests:[];
+  if(S.clanRequests.some(r=>r.clanId===clanId&&r.playerId===who&&r.status==='pending'))return{ok:false,msg:'درخواست قبلاً ارسال شده'};
+  S.clanRequests.push({id:'cr'+Date.now()+Math.random().toString(36).slice(2,6),clanId,playerId:who,created:Date.now(),status:'pending'});save(S);
+  return{ok:true};
+}
+export function approveClanRequest(S,requestId,approver='me'){
+  const r=(S.clanRequests||[]).find(x=>x.id===requestId&&x.status==='pending');if(!r)return{ok:false,msg:'درخواست معتبر نیست'};
+  const c=clanById(S,r.clanId);if(!c||c.owner!==approver)return{ok:false,msg:'فقط بنیان‌گذار می‌تواند تأیید کند'};
+  if(c.members.length>=CLAN_MAX_CASTLES)return{ok:false,msg:'ظرفیت قبیله پر است'};
+  const p=playerById(S,r.playerId);if(!p||S.clans.some(x=>x.members.includes(r.playerId)))return{ok:false,msg:'بازیکن دیگر قابل عضویت نیست'};
+  c.members.push(r.playerId);p.clanId=c.id;p.clanRole='member';r.status='approved';r.reviewed=Date.now();
+  addSys(S,'🏳 '+p.name+' با تأیید مدیر به قبیله «'+c.name+'» پیوست');save(S);return{ok:true};
+}
+export function rejectClanRequest(S,requestId,approver='me'){
+  const r=(S.clanRequests||[]).find(x=>x.id===requestId&&x.status==='pending');if(!r)return{ok:false,msg:'درخواست معتبر نیست'};
+  const c=clanById(S,r.clanId);if(!c||c.owner!==approver)return{ok:false,msg:'فقط بنیان‌گذار می‌تواند رد کند'};
+  r.status='rejected';r.reviewed=Date.now();save(S);return{ok:true};
+}
 export function leaveClan(S,who='me'){
   const c=myClan(S);if(!c)return;
   c.members=c.members.filter(m=>m!==who);
@@ -87,9 +111,8 @@ export const SHOP={
 export function buyItem(S,key){
   const it=SHOP[key];if(!it)return{ok:false,msg:'نامعتبر'};
   if(S.resources.gold<it.cost)return{ok:false,msg:'سکه کافی نیست ('+it.cost+'🪙)'};
-  S.resources.gold-=it.cost;
-  if(it.hours){const r=buyShield(S,it.hours);if(!r.ok){S.resources.gold+=it.cost;return r;}}
-  else{S.resources[key]=(S.resources[key]||0)+it.amount;addSys(S,'🛒 '+it.name+' خریداری شد');save(S);}
+  if(it.hours){const r=buyShield(S,it.hours);if(!r.ok)return r;}
+  else{S.resources.gold-=it.cost;S.resources[key]=(S.resources[key]||0)+it.amount;addSys(S,'🛒 '+it.name+' خریداری شد');save(S);}
   return{ok:true};}
 
 // ---------- چت گروهی قبیله ----------

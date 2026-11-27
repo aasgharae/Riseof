@@ -12,9 +12,10 @@ import{ensureSeason,bossPhase,weaknessAt,bossHit,bossBoard,rewardFor,fmtDur,CLS_
 import{campSpotError,campAmbush,campMods,campSpeed}from'./camps.js';
 import{ensurePlayers,others,playerById,threadOf,pushMsg,unreadFor,markRead,bumpUnread,totalUnread,addSys,ambientReply,ambientRandom}from'./social.js';
 import{initAdmin}from'./admin.js';
-import{createClan,myClan,clanById,clanMembers,castleCount,joinClan,leaveClan,kickClan,allied,ensureShield,shieldActive,shieldLeft,buyShield,SHOP,buyItem,CLAN_COST,CLAN_MAX_CASTLES,clanChatOf,pushClanMsg,unreadClan}from'./clans.js';
+import{createClan,myClan,clanById,clanMembers,castleCount,joinClan,requestClan,approveClanRequest,rejectClanRequest,leaveClan,kickClan,allied,ensureShield,shieldActive,shieldLeft,buyShield,SHOP,buyItem,CLAN_COST,CLAN_MAX_CASTLES,clanChatOf,pushClanMsg,unreadClan}from'./clans.js';
 import{ENERGY,SEASON,CAMP,maxCamps,BOSS_POS}from'./config.js';
 import{Renderer}from'./js/renderer.js';
+import{findPath}from'./js/pathfinding.js';
 import{placeCastles,findHome}from'./js/worldgen.js';
 import{makeRng}from'./js/noise.js';
 import{rankBoard,factionBoard,npcKillsInit,npcTick}from'./leaderboard.js';
@@ -171,11 +172,13 @@ window.launch=(targetId)=>{
     for(const tid in selTroops){const n=parseInt(selTroops[tid]||0);if(n>0&&tid!=='spy'){army[tid]=Math.min(n,S.troops[tid]||0);count+=army[tid];}}
     if(!count)return toast('سربازی انتخاب نشده');
     const cap=armyCap(S,expeditionCap(S),cmd);if(count>cap)return toast('ظرفیت لشکر: '+fmt(cap)+' سرباز');}
+  const o=origin(),path=findPath(R.terr,{x:o.x,y:o.y},{x:tr.x,y:tr.y});
+  if(!path.ok)return toast('⛔ مسیر زمینی قابل عبور تا این قلعه پیدا نشد');
   const cost=energyCost(S,cmd);
   if(!spendEnergy(S,cost))return toast('⚡ انرژی امروز کافی نیست ('+cost+' لازم، '+S.energy.v+' مانده)');
   if(camp)camp.army={};else for(const tid in army)S.troops[tid]-=army[tid];
-  const o=origin(),travel=Math.hypot(tr.x-o.x,tr.y-o.y)/legSpeed(cmd);
-  S.marches.push({army,target:targetId,tx:tr.x,ty:tr.y,hx:o.x,hy:o.y,travelLeft:travel,travelTotal:travel,cmd,fromCamp:camp?camp.id:null,surprise:!!camp});
+  const travel=path.cost/legSpeed(cmd);
+  S.marches.push({army,target:targetId,tx:tr.x,ty:tr.y,hx:o.x,hy:o.y,route:path.points,travelLeft:travel,travelTotal:travel,cmd,fromCamp:camp?camp.id:null,surprise:!!camp});
   bump(S,'marches');
   addLog(S,'info','🚩 '+(camp?'حمله‌ی غافلگیرانه از کمپ':'لشکر')+' به سمت '+tr.name+' حرکت کرد ('+fmt(armyCount(army))+' نفر'+(cmd?' • '+CMD[cmd].icon+CMD[cmd].name:'')+')');
   selTroops={};save(S);updTop();openSheet('attack');toast('🚩 به سمت '+tr.name+' — '+Math.ceil(travel)+'ث • ⚡-'+cost);};
@@ -192,17 +195,18 @@ window.deployCamp=()=>{
   const cmd=selCmd&&freeCmds(S).includes(selCmd)?selCmd:null;if(!cmd)return toast('برای کمپ باید یک فرمانده ارشد انتخاب کنی');
   const army={};let count=0;for(const tid in selTroops){const n=parseInt(selTroops[tid]||0);if(n>0&&tid!=='spy'){army[tid]=Math.min(n,S.troops[tid]||0);count+=army[tid];}}
   if(!count)return toast('سربازی انتخاب نشده');if(count>armyCap(S,expeditionCap(S),cmd))return toast('بیش از ظرفیت لشکر');
+  const path=findPath(R.terr,{x:S.homePos.x,y:S.homePos.y},{x:campDraft.x,y:campDraft.y});if(!path.ok)return toast('⛔ مسیر زمینی تا محل کمپ وجود ندارد');
   const cost=energyCost(S,cmd);if(!spendEnergy(S,cost))return toast('⚡ انرژی کافی نیست ('+cost+' لازم)');
   for(const tid in army)S.troops[tid]-=army[tid];
-  const d=Math.hypot(campDraft.x-S.homePos.x,campDraft.y-S.homePos.y)/legSpeed(cmd);
-  S.marches.push({army,target:null,deployCamp:true,tx:campDraft.x,ty:campDraft.y,hx:S.homePos.x,hy:S.homePos.y,travelLeft:d,travelTotal:d,cmd});
+  const d=path.cost/legSpeed(cmd);
+  S.marches.push({army,target:null,deployCamp:true,tx:campDraft.x,ty:campDraft.y,hx:S.homePos.x,hy:S.homePos.y,route:path.points,travelLeft:d,travelTotal:d,cmd});
   bump(S,'marches');addLog(S,'info','⛺ لشکر برای برپایی کمپ حرکت کرد');campDraft=null;selTroops={};save(S);updTop();openSheet('attack');toast('⛺ در راه کمپ — ⚡-'+cost);};
 window.useCamp=(id)=>{detailCamp=id;openSheet('attack');};
 window.homeMode=()=>{detailCamp=null;openSheet('attack');};
 window.recallCamp=(id)=>{const k=S.camps.find(x=>x.id===id);if(!k)return;
   S.camps=S.camps.filter(x=>x!==k);
-  if(armyCount(k.army)>0){const d=Math.hypot(S.homePos.x-k.x,S.homePos.y-k.y)/(marchSpeed()*(1+(cmdFx(S,k.cmd).speed||0)));
-    S.marches.push({army:k.army,target:null,returning:true,cmd:k.cmd,tx:S.homePos.x,ty:S.homePos.y,hx:k.x,hy:k.y,travelLeft:d,travelTotal:d});}
+  if(armyCount(k.army)>0){const path=findPath(R.terr,{x:k.x,y:k.y},{x:S.homePos.x,y:S.homePos.y});if(path.ok){const d=path.cost/(marchSpeed()*(1+(cmdFx(S,k.cmd).speed||0)));
+    S.marches.push({army:k.army,target:null,returning:true,cmd:k.cmd,tx:S.homePos.x,ty:S.homePos.y,hx:k.x,hy:k.y,route:path.points,travelLeft:d,travelTotal:d});}else addLog(S,'lose','⛔ مسیر بازگشت کمپ پیدا نشد');}
   detailCamp=null;save(S);renderSheet();toast('⛺ کمپ جمع شد و لشکر برمی‌گردد');};
 // جاسوسی
 window.setSpyN=n=>{spyN=Math.max(1,parseInt(n)||1);};
@@ -227,8 +231,10 @@ function sendBack(army,hx,hy,m){
   const camp=m&&m.fromCamp?S.camps.find(k=>k.id===m.fromCamp):null;
   const tx=camp?camp.x:S.homePos.x,ty=camp?camp.y:S.homePos.y;
   const sp=camp?campSpeed(S,m.cmd):marchSpeed()*(1+(cmdFx(S,m?.cmd).speed||0));
-  const d=Math.hypot(tx-hx,ty-hy)/sp;
-  S.marches.push({army,target:null,returning:true,toCamp:camp?camp.id:null,cmd:m?.cmd||null,tx,ty,hx,hy,travelLeft:d,travelTotal:d});}
+  const path=findPath(R.terr,{x:hx,y:hy},{x:tx,y:ty});
+  if(!path.ok){addLog(S,'lose','⛔ مسیر بازگشت زمینی پیدا نشد؛ لشکر در موقعیت فعلی باقی ماند');return;}
+  const d=path.cost/sp;
+  S.marches.push({army,target:null,returning:true,toCamp:camp?camp.id:null,cmd:m?.cmd||null,tx,ty,hx,hy,route:path.points,travelLeft:d,travelTotal:d});}
 const sendHome=(army,hx,hy)=>sendBack(army,hx,hy,null);
 function takeLosses(army,losses){const sv={};for(const k in army){const n=army[k]-(losses[k]||0);if(n>0)sv[k]=n;}return sv;}
 function resolveBoss(m){
@@ -283,6 +289,7 @@ function resolveMarch(m){
 
 // حمله NPC به قلعه من
 function handleRaid(raid){
+  if(shieldActive(S,Date.now())){addLog(S,'win','🛡 جادوی محافظت فعال بود؛ حمله '+raid.name+' خنثی شد و هیچ خسارتی وارد نشد');toast('🛡 محافظت فعال بود؛ حمله دشمن خنثی شد');return;}
   const o=resolveRaid(S,raid,Math.random),hurt=addWounded(S,o.myLosses);
   S.kills=(S.kills||0)+o.kills;
   const lostTxt=armyCount(o.myLosses)?' — 🩹'+fmt(hurt.wounded)+' مجروح • ☠'+fmt(hurt.dead)+' کشته':'';
@@ -297,21 +304,20 @@ function handleRaid(raid){
     toast('🛡 <b>حمله '+raid.name+' دفع شد!</b> ☠'+fmt(o.kills)+' دشمن کشته شد');}}
 
 // ---------- منوی ۴گانه روی قلعه‌های نقشه ----------
-window.mapMenu=(id)=>{const t=getTarget(id);if(!t)return;
-  if(allied(S,id))return toast('🏳 این قلعه هم‌قبیله‌ای توست — حمله ممنوع');
-  mapMenuTarget=id;openSheet('mapmenu');};
-let mapMenuTarget=null;
+window.mapMenu=(id)=>{const t=getTarget(id);if(!t)return;mapMenuTarget=id;const o=origin();mapMenuPath=findPath(R.terr,{x:o.x,y:o.y},{x:t.x,y:t.y});openSheet('mapmenu');};
+let mapMenuTarget=null,mapMenuPath=null;
 function renderMapMenu(){const B=$('sheetBody'),t=getTarget(mapMenuTarget);
   if(!t){cur='attack';renderSheet();return;}
-  const inClan=!!myClan(S),full=inClan&&castleCount(S,myClan(S))>=CLAN_MAX_CASTLES;
+  const isAlly=allied(S,mapMenuTarget),isPlayer=!!t.playerId;
+  const menuEta=mapMenuPath?.ok?Math.ceil(mapMenuPath.cost/legSpeed(selCmd)):'—';
   B.innerHTML='<div class="card hero"><div class="bhead"><span class="fdot" style="background:'+(t.color||'#b08a5a')+'"></span><b>'+t.name+'</b><span class="lvl">Lv'+t.level+'</span></div>'
-    +'<div class="q">⚔ پاور '+powTxt(t)+' • 📏'+Math.round(dist(t))+' • ⏱'+eta(t)+'ث</div></div>'
-    +'<div class="statgrid">'
-    +'<div class="stat" style="cursor:pointer" onclick="openDetail(\''+t.id+'\')">🚩<br>حمله</div>'
-    +'<div class="stat" style="cursor:pointer" onclick="quickSpy(\''+t.id+'\')">🕵️<br>جاسوسی</div>'
-    +'<div class="stat" style="cursor:pointer" onclick="openThreadByTribe(\''+t.id+'\')">✉️<br>پیام</div>'
-    +'<div class="stat" style="cursor:pointer" onclick="inviteClan(\''+t.id+'\')">🏳️<br>دعوت به قبیله</div></div>'
-    +'<div class="q" style="justify-content:center;margin-top:10px">یک گزینه را انتخاب کن</div>';}
+    +'<div class="q">⚔ پاور '+powTxt(t)+' • 📏'+Math.round(dist(t))+' • ⏱'+menuEta+'ث</div></div>'
+    +'<div class="map-actions">'
+    +'<button class="map-action" '+(isAlly?'disabled':'')+' onclick="openDetail(\''+t.id+'\')">🚩<br>حمله</button>'
+    +'<button class="map-action" onclick="quickSpy(\''+t.id+'\')">🕵️<br>جاسوسی</button>'
+    +'<button class="map-action" '+(!isPlayer?'disabled':'')+' onclick="openThreadByTribe(\''+t.id+'\')">✉️<br>پیام</button>'
+    +'<button class="map-action" '+(!isPlayer?'disabled':'')+' onclick="inviteClan(\''+t.id+'\')">🏳️<br>دعوت به قبیله</button></div>'
+    +'<div class="q" style="justify-content:center;margin-top:10px">'+(isAlly?'این قلعه هم‌قبیله‌ای توست؛ حمله غیرفعال است':!isPlayer?'برای قلعه‌های NPC پیام و دعوت قبیله غیرفعال است':'یک عملیات انتخاب کن')+'</div>';}
 window.quickSpy=(id)=>{const t=getTarget(id);if(!t)return;spyN=Math.max(spyN,10);doSpy(id);};
 window.openThreadByTribe=(id)=>{const t=getTarget(id);
   if(t&&t.playerId){msgsPeer=t.playerId;msgsTab='thread';markRead(S,t.playerId);openSheet('msgs');}
@@ -331,13 +337,17 @@ function renderClan(){const B=$('sheetBody');const c=myClan(S);
       +'<div class="q">• هر قبیله حداکثر ۱۵ قلعه دارد<br>• اعضای قبیله متحدند و حمله به هم ممنوع<br>• چت گروهی مخصوص قبیله داری</div>'
       +'<div class="row"><input id="clanName" class="sinput" style="flex:1" placeholder="نام قبیله…" maxlength="20"><button class="btn" onclick="doCreateClan()">🏳 تأسیس</button></div></div>';
     const open=S.clans.filter(x=>x.members.length<CLAN_MAX_CASTLES&&x.owner!=='me');
-    if(open.length)h+='<div class="q"><b>قبیله‌های موجود</b></div>'+open.map(x=>'<div class="res"><div><b>'+x.name+'</b><br><span style="color:var(--dim);font-size:11.5px">'+x.members.length+'/'+CLAN_MAX_CASTLES+' قلعه</span></div><div class="meta"><button class="btn sm" onclick="doJoinClan(\''+x.id+'\')">پیوستن</button></div></div>').join('');
+    if(open.length)h+='<div class="q"><b>قبیله‌های موجود</b></div>'+open.map(x=>'<div class="res"><div><b>'+x.name+'</b><br><span style="color:var(--dim);font-size:11.5px">'+x.members.length+'/'+CLAN_MAX_CASTLES+' قلعه</span></div><div class="meta"><button class="btn sm" onclick="doJoinClan(\''+x.id+'\')">درخواست عضویت</button></div></div>').join('');
     B.innerHTML=h;return;}
   const members=clanMembers(S,c);
   h+='<div class="card hero"><div class="bhead">🏳 <b>'+c.name+'</b><span class="lvl">'+c.members.length+'/'+CLAN_MAX_CASTLES+' قلعه</span></div>'
     +'<div class="q">👑 بنیان‌گذار: '+(playerById(S,c.owner)?.name||'—')+'</div>'
     +(S.shieldUntilTxt?'':'')
     +'<div class="q">📜 دفترچه قبیله و چت گروهی در منوی ✉️ پیام‌ها</div></div>';
+  const pending=(S.clanRequests||[]).filter(r=>r.clanId===c.id&&r.status==='pending');
+  if(c.owner==='me'){h+='<div class="card"><b>📨 درخواست‌های عضویت ('+pending.length+')</b>';
+    h+=pending.length?pending.map(r=>{const p=playerById(S,r.playerId);return '<div class="res"><div><b>'+(p?.name||r.playerId)+'</b><br><span class="q">درخواست عضویت</span></div><div class="meta"><button class="btn sm" onclick="approveClanJoin(\''+r.id+'\')">تأیید</button> <button class="btn sm ghost" onclick="rejectClanJoin(\''+r.id+'\')">رد</button></div></div>';}).join(''):'<div class="q">درخواستی در انتظار نیست</div>';
+    h+='</div>';}
   h+='<div class="q"><b>اعضا (همه با هم متحدند)</b></div>';
   h+=members.map(p=>'<div class="res"><span class="fdot" style="background:'+p.color+'"></span><div><b>'+p.name+'</b>'+(p.id===c.owner?' 👑':'')+'<br><span style="color:var(--dim);font-size:11.5px">⚔'+fmt(p.power||0)+'</span></div>'
     +(c.owner==='me'&&p.id!=='me'?'<div class="meta"><button class="btn sm ghost" onclick="doKickClan(\''+p.id+'\')">اخراج</button></div>':'')+'</div>').join('');
@@ -345,7 +355,9 @@ function renderClan(){const B=$('sheetBody');const c=myClan(S);
   B.innerHTML=h;}
 window.doCreateClan=()=>{const n=$('clanName')?.value.trim();if(!n)return toast('نام قبیله را بنویس');
   if(createClan(S,n)){updTop();renderSheet();toast('🏳 قبیله «'+n+'» تاسیس شد!');}};
-window.doJoinClan=id=>{if(joinClan(S,id,'me')){updTop();renderSheet();toast('به قبیله پیوست');}};
+window.doJoinClan=id=>{const r=requestClan(S,id,'me');if(!r.ok)return toast(r.msg);renderSheet();toast('درخواست عضویت برای مدیر قبیله ارسال شد');};
+window.approveClanJoin=id=>{const r=approveClanRequest(S,id,'me');if(!r.ok)return toast(r.msg);updTop();renderSheet();toast('درخواست عضویت تأیید شد');};
+window.rejectClanJoin=id=>{const r=rejectClanRequest(S,id,'me');if(!r.ok)return toast(r.msg);renderSheet();toast('درخواست رد شد');};
 window.doLeaveClan=()=>{if(confirm('قبیله را ترک می‌کنی؟')){leaveClan(S,'me');renderSheet();}};
 window.doKickClan=id=>{kickClan(S,id);renderSheet();};
 
@@ -806,7 +818,7 @@ setInterval(()=>{
   const tk=grantTokens(S);if(tk.length){addLog(S,'info','🎫 توکن فرمانده گرفتی (قلعه Lv'+tk.join('، ')+')');toast('🎫 <b>توکن فرمانده ارشد</b> گرفتی! از 🎖 انتخاب کن');}
   if(tickN%5===0)npcTick(S,Math.random,25);
   if(tickN%10===0)npcGrow(S,Math.random,40);
-  if(tickN%NPC.warEverySec===0)startWar(S,Math.random);
+  if(tickN%NPC.warEverySec===0)startWar(S,Math.random,R.terr);
   for(const b of S.buildings){const p=buildingProd(b.type,b.level);for(const k in p)S.resources[k]+=p[k]/60*20;}
   for(const u of[...S.upgrades]){u.left-=1;
     if(u.left<=0){const b=S.buildings.find(x=>x.id===u.id);if(b)b.level++;
@@ -837,9 +849,10 @@ setInterval(()=>{
       addLog(S,'win','⛺ کمپ شما لشکر '+a.ref.name+' را کمین کرد و حمله به قلعه‌ات را خنثی کرد!');toast('⛺ <b>کمین موفق!</b> حمله '+a.ref.name+' خنثی شد');}
     else if(a.win)addLog(S,'win','⛺ کمپ شما یک لشکر در حال جنگ NPCها را کمین کرد');
     else if(a.kind==='raid')addLog(S,'lose','⛺ کمین ناموفق: لشکر دشمن از کمپ گذشت و به راهش ادامه می‌دهد');}
-  const raid=maybeRaid(S,now,Math.random);
+  const raid=shieldActive(S,now)?null:maybeRaid(S,now,Math.random,R.terr);
   if(raid){addLog(S,'lose','⚠️ '+raid.name+' با ⚔'+fmt(raid.power)+' به قلعه‌ات لشکر کشید — '+Math.ceil(raid.left)+' ثانیه تا رسیدن!');
     toast('⚠️ <b>حمله دشمن!</b> '+raid.name+' — '+Math.ceil(raid.left)+'ث');}
+  if(shieldActive(S,now)&&S.incoming.length){addLog(S,'win','🛡 جادوی محافظت فعال شد و '+S.incoming.length+' حمله‌ی در راه را خنثی کرد');S.incoming=[];}
   for(const r of[...S.incoming]){r.left-=1;if(r.left<=0){S.incoming=S.incoming.filter(x=>x!==r);handleRaid(r);}}
   if(tickN%30===0)ensureQuests(S,now);
   if(tickN%45===0)ambientRandom(S);

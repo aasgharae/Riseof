@@ -59,6 +59,7 @@ export function ensureDefaults(S){
   S.clanChats=S.clanChats&&typeof S.clanChats==='object'?S.clanChats:{};
   if(S.unreadClan==null)S.unreadClan=0;
   S.invites=Array.isArray(S.invites)?S.invites:[];
+  S.clanRequests=Array.isArray(S.clanRequests)?S.clanRequests:[];
   // null is meaningful to clans.js: it initializes the first-day shield once.
   if(!Object.prototype.hasOwnProperty.call(S,'shield'))S.shield=null;
   if(!S.cmd)S.cmd={tokens:1,unlocked:[],levels:{},emblems:0,granted:[]};
