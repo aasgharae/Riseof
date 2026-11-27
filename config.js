@@ -109,7 +109,7 @@ export const NPC={buff:2.6,growCap:4.5,growStep:1.018,warEverySec:12,raidMinSec:
 // ---- انرژی روزانه، فصل، غول، کمپ ----
 export const ENERGY={max:100,move:5,spy:2};           // هر جابجایی لشکر ۵ واحد از ۱۰۰ واحد روزانه
 export const INTEL_TTL=600;                           // ثانیه اعتبار اطلاعات جاسوسی
-export const SEASON={days:30,bossHours:48,rotHours:6,itemPool:20,maxHits:16};
+export const SEASON={days:CONFIG.seasonLength,bossHours:48,rotHours:6,itemPool:20,maxHits:16};
 export const CAMP={surprise:0.2,wallIgnore:0.3,speed:0.5,radius:9};
 export const maxCamps=s=>{const m=s.buildings.find(b=>b.type==='muster')?.level||1;return 1+(m>=12?1:0)+(m>=24?1:0);};
 export const BOSS_POS={x:WORLD_W/2,y:WORLD_H/2};

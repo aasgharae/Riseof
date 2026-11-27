@@ -25,12 +25,46 @@ function migrateV8(o){
   return o;}
 // فیلدهای نسخه ۴ (بیمارستان، حمله NPC، گنج، ماموریت) برای سیوهای قدیمی
 export function ensureDefaults(S){
-  S.wounded=S.wounded||{};S.healing=S.healing||[];S.incoming=S.incoming||[];S.npcMarches=[];S.respawns=S.respawns||[];
-  S.stats=S.stats||{};if(S.nextRaid==null)S.nextRaid=0;
-  S.camps=S.camps||[];S.intel=S.intel||{};S.pastSeasons=S.pastSeasons||[];
+  if(!S || typeof S !== 'object') S=freshState();
+  S.resources=S.resources&&typeof S.resources==='object'?S.resources:{...START_RESOURCES};
+  S.buildings=Array.isArray(S.buildings)?S.buildings:[];
+  S.upgrades=Array.isArray(S.upgrades)?S.upgrades:[];
+  S.troops=S.troops&&typeof S.troops==='object'?S.troops:{};
+  S.training=S.training&&typeof S.training==='object'?S.training:{};
+  S.marches=Array.isArray(S.marches)?S.marches:[];
+  S.tribes=Array.isArray(S.tribes)?S.tribes:[];
+  S.log=Array.isArray(S.log)?S.log:[];
+  S.factionKills=S.factionKills&&typeof S.factionKills==='object'?S.factionKills:{};
+
+  // Preserve live world data across reloads. These values were previously reset
+  // unconditionally, which erased NPC marches and re-granted the first-day shield.
+  S.wounded=S.wounded&&typeof S.wounded==='object'?S.wounded:{};
+  S.healing=Array.isArray(S.healing)?S.healing:[];
+  S.incoming=Array.isArray(S.incoming)?S.incoming:[];
+  S.npcMarches=Array.isArray(S.npcMarches)?S.npcMarches:[];
+  S.respawns=Array.isArray(S.respawns)?S.respawns:[];
+  S.stats=S.stats&&typeof S.stats==='object'?S.stats:{};
+  if(S.nextRaid==null)S.nextRaid=0;
+  S.camps=Array.isArray(S.camps)?S.camps:[];
+  S.intel=S.intel&&typeof S.intel==='object'?S.intel:{};
+  S.pastSeasons=Array.isArray(S.pastSeasons)?S.pastSeasons:[];
+  S.chats=S.chats&&typeof S.chats==='object'?S.chats:{};
+  S.unread=S.unread&&typeof S.unread==='object'?S.unread:{};
+  S.players=Array.isArray(S.players)?S.players:[];
+  S.seasonsList=Array.isArray(S.seasonsList)?S.seasonsList:[{id:1,name:'فصل ۱'}];
+  if(S.mySeason==null)S.mySeason=1;
+  S.sysMsgs=Array.isArray(S.sysMsgs)?S.sysMsgs:[];
+  S.clans=Array.isArray(S.clans)?S.clans:[];
+  if(S.myClan===undefined)S.myClan=null;
+  S.clanChats=S.clanChats&&typeof S.clanChats==='object'?S.clanChats:{};
+  if(S.unreadClan==null)S.unreadClan=0;
+  S.invites=Array.isArray(S.invites)?S.invites:[];
+  // null is meaningful to clans.js: it initializes the first-day shield once.
+  if(!Object.prototype.hasOwnProperty.call(S,'shield'))S.shield=null;
   if(!S.cmd)S.cmd={tokens:1,unlocked:[],levels:{},emblems:0,granted:[]};
-  if(!S.buildings.some(b=>b.type==='hospital'))S.buildings.push({id:'hosp-1',type:'hospital',x:22,y:13,level:1});
-  return S;}
+  if(!S.buildings.some(b=>b&&b.type==='hospital'))S.buildings.push({id:'hosp-1',type:'hospital',x:22,y:13,level:1});
+  return S;
+}
 function loadRaw(){try{const s=localStorage.getItem(SAVE_KEY);
   if(s){const o=JSON.parse(s);if(o.v===9){if(!o.log)o.log=[];if(o.kills==null)o.kills=0;return o;}}
   const old=localStorage.getItem(LEGACY_KEY);

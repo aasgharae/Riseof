@@ -1,6 +1,6 @@
-# Rise — Offline Clan Strategy Prototype (v3)
+# Rise — Persian Clan Strategy Game Prototype
 
-Persian RTL single-device strategy game prototype. Static site, no server; saves live in the browser (localStorage).
+Rise currently runs as a browser-based offline prototype. The v9 stabilization work preserves the existing client while preparing a gradual migration to a Node.js + PostgreSQL backend and multiple independent worlds.
 
 ## Play locally
 
@@ -10,25 +10,21 @@ python -m http.server 8000
 
 Open `http://localhost:8000`.
 
-## What's in v3
+## Run tests
 
-- World map **800×560** with **600 castles** across **5 NPC factions** (territory, flag colors, names).
-- Every castle shows its **level above it** and its **troop power + wall level** below it; the player's castle shows keep level and army power.
-- Castles farther from home are higher level with stronger garrisons (real garrison compositions).
-- **Map search** (🔍): live search by castle/faction name, faction filter chips, camera jump with a highlight ring.
-- **Minimap**: whole world at a glance, faction-colored castle dots, viewport rectangle, tap-to-jump.
-- Zoom buttons, go-home button, progress bars on upgrades/training, battle reports log, empire screen with per-faction conquest progress.
-- Huge starting resources for testing (billions). Gold is only for speed-ups.
-
-- **Leaderboard** 🏆: power ranking, kill ranking, faction table.
-- Vector forests/mountains over a smooth painted terrain.
-
-## Tests
+Requires Node.js 20 or newer.
 
 ```bash
-node --test
+npm test
 ```
 
-## Online migration
+## Migration status
 
-See ONLINE_ROADMAP.md — server-authoritative logic, DB, auth, sync, real players on the shared seed map, security. The browser is untrusted; never ship this client logic as-is for multiplayer.
+- Phase 1: offline state stabilization and regression tests.
+- Phase 2: Node.js API, PostgreSQL schema, server-side authentication.
+- Phase 3: migrate economy, construction, training, marches and combat to server-authoritative services.
+- Phase 4: multiple worlds, each with its own seed, season, players and NPC simulation.
+
+See `ONLINE_ROADMAP.md` and `docs/PHASE-1-STABILIZATION.md`.
+
+**Important:** the current local authentication and localStorage save are for prototyping only. They are not secure or shared across devices.

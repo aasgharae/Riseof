@@ -1,20 +1,40 @@
-<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Rise of Clans — ظهور قبیله‌ها</title><link rel="stylesheet" href="style.css"></head><body>
-<div id="splash"><div class="logo">🏰</div><h1>ظهور قبیله‌ها</h1><p class="sub">جهان عظیم • ۶۰۰ قلعه • ۵ قبیله • گنج و غار • حمله دشمن • بیمارستان</p>
+<div id="splash"><div class="logo">🏰</div><h1>ظهور قبیله‌ها</h1>
 <button id="btnContinue">▶ ادامه بازی</button><button id="btnNew" class="ghost">↺ جهان جدید</button>
 <button id="btnHelp" class="ghost">؟ راهنما</button>
 <div id="helpBox" hidden>
-• نقشه را بکشید و با دو انگشت یا اسکرول زوم کنید<br>
-• 🔍 جستجو: نام قلعه یا قبیله را بنویسید و روی نتیجه بزنید تا دوربین پرش کند<br>
-• ضربه روی مینی‌مپ (گوشه نقشه) شما را مستقیم به آن نقطه می‌برد<br>
-• روی هر قلعه ضربه بزنید تا مشخصات کامل و پنجره لشکرکشی باز شود<br>
-• بالای هر قلعه سطح (Lv) آن و زیرش پاور نیروها و سطح دیوار دیده می‌شود<br>
-• قلعه‌های دورتر از خانه، سطح و پاور بالاتری دارند — از نزدیک‌ها شروع کنید<br>
-• سکه 🪙 فقط برای تسریع است: ارتقا، تربیت لحظه‌ای و رسیدن سریع لشکر<br>
-• ساختمان «لشکر» 🚩 ظرفیت اعزام و تعداد صف‌های همزمان را بالا می‌برد</div></div>
-<div id="game" hidden><div id="topbar"><span id="res-food">🌾 0</span><span id="res-wood">🪵 0</span><span id="res-stone">🪨 0</span><span id="res-iron">⛓️ 0</span><span id="res-gold">🪙 0</span><span id="res-energy">⚡ 100/100</span><span id="dayLabel"></span></div>
-<div id="tabs"><button id="tabWorld" class="on">🌍 نقشه جهان</button><button id="tabCastle">🏰 قلعه من</button><button id="btnSearch" title="جستجو">🔍</button><button id="btnHome2" title="برو به قلعه من">📍</button></div>
-<div id="mapWrap"><canvas id="cv"></canvas><div id="alertBar" hidden></div><div id="modeBar" hidden></div><div id="zoomCtl"><button id="zin">＋</button><button id="zout">－</button></div></div>
-<div id="dock"><button data-act="build"><em>🏗️</em><small>ساخت</small></button><button data-act="train"><em>⚔️</em><small>سرباز</small></button><button data-act="attack"><em>🚩</em><small>لشکر</small><i class="badge" hidden></i></button><button data-act="quests"><em>🎯</em><small>ماموریت</small><i class="badge" hidden></i></button><button data-act="empire"><em>👑</em><small>امپراتوری</small></button><button data-act="cmd"><em>🎖</em><small>فرمانده</small><i class="badge" hidden></i></button></div>
+• نقشه را بکشید • با دو انگشت یا اسکرول زوم کنید<br>
+• روی هر قلعه/گنج ضربه بزنید تا پنجره‌ی لشکرکشی باز شود<br>
+• دکمه‌ی 🏰/🌍 بالای نقشه: رفتن به قلعه یا جهان<br>
+• ضربه روی مینی‌مپ شما را مستقیم به آن نقطه می‌برد<br>
+• 🔍 جستجوی نام قلعه • قلعه‌های دور، قوی‌ترند<br>
+• سکه 🪙 فقط برای تسریع است</div></div>
+<div id="game" hidden>
+<div id="mapWrap"><canvas id="cv"></canvas>
+<div id="topbar">
+  <div class="tline"><span id="res-food">🌾 0</span><span id="res-wood">🪵 0</span><span id="res-stone">🪨 0</span><span id="res-iron">⛓️ 0</span><span id="res-gold">🪙 0</span></div>
+  <div class="tline"><span id="res-energy">⚡ 100/100</span><span id="dayLabel"></span></div>
+</div>
+<div id="mapBtns">
+  <button id="btnView" title="قلعه من / جهان">🏰</button>
+  <button id="btnSearch" title="جستجو">🔍</button>
+  <button id="btnHome2" title="برو به قلعه من">📍</button>
+</div>
+<div id="alertBar" hidden></div><div id="modeBar" hidden></div>
+<div id="zoomCtl"><button id="zin" title="زوم +">＋</button><button id="zout" title="زوم -">－</button></div>
+</div>
+<div id="dock">
+<button data-act="build" title="ساخت و ارتقا"><em>🏗️</em></button>
+<button data-act="train" title="سربازخانه"><em>⚔️</em></button>
+<button data-act="attack" title="لشکرکشی"><em>🚩</em><i class="badge" hidden></i></button>
+<button data-act="quests" title="ماموریت‌ها"><em>🎯</em><i class="badge" hidden></i></button>
+<button data-act="empire" title="امپراتوری و رتبه‌ها"><em>👑</em></button>
+<button data-act="cmd" title="فرماندهان"><em>🎖</em><i class="badge" hidden></i></button>
+<button data-act="clan" title="قبیله"><em>🏳️</em><i class="badge" hidden></i></button>
+<button data-act="shop" title="فروشگاه"><em>🛒</em></button>
+<button data-act="msgs" title="پیام‌ها"><em>✉️</em><i class="badge" hidden></i></button>
+</div>
 <div id="sheet" hidden><div id="sheetCard"><div id="sheetHead"><b id="sheetTitle"></b><button id="sheetClose">✕</button></div><div id="sheetBody"></div></div></div>
+<div id="admin" hidden><div id="adminCard"><div id="adminHead"><b>🛡 پنل مدیریت</b><button id="adminClose">✕</button></div><div id="admBody"></div></div></div>
 <div id="toast"></div></div><script type="module" src="app.js"></script></body></html>

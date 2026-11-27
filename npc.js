@@ -1,4 +1,4 @@
-import{EXTRA_NAMES,NPC,factionAt}from'./config.js';
+import{EXTRA_NAMES,NPC}from'./config.js';
 import{genGarrison,armyPower,armyCount,battle}from'./combat.js';
 import{npcKillsInit}from'./leaderboard.js';
 
@@ -12,9 +12,9 @@ export function newId(S){S.nextId=(S.nextId||1000)+1;return 't'+S.nextId;}
 
 // ساخت یک قلعه NPC (هم برای جهان اول، هم جایگزین‌ها)
 export function buildTribe(id,name,x,y,level,rng,buff=1){
-  const f=factionAt(x,y),garrison=genGarrison(level,rng);
-  const t={id,name,faction:f.id,factionName:f.icon+' '+f.name,color:f.color,x,y,level,wall:Math.floor(level/4),garrison,
-    power:Math.floor(armyPower(garrison)*(1+f.idx*0.07)),kills:0,
+  const garrison=genGarrison(level,rng);
+  const t={id,name,faction:null,factionName:'',color:'#b08a5a',x,y,level,wall:Math.floor(level/4),garrison,
+    power:Math.floor(armyPower(garrison)),kills:0,
     loot:{food:Math.floor(3000*level*(0.8+rng()*0.5)),wood:Math.floor(2500*level*(0.8+rng()*0.5)),
       stone:Math.floor(2000*level*(0.8+rng()*0.5)),iron:Math.floor(1200*level*(0.8+rng()*0.5)),gold:Math.floor(35*level*(0.8+rng()*0.6))}};
   t.kills=npcKillsInit(garrison,rng);
