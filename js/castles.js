@@ -64,19 +64,19 @@ function drawLevelBadge(c, x, y, s, level){
   c.textBaseline='alphabetic';
 }
 
-export function drawCastle(c, x, y, s, color, t, power=0, level=0){
+export function drawCastle(c, x, y, s, color, t, power=0, level=0, skin=null){
   const w=s, h=s*0.62;
   c.fillStyle='rgba(0,0,0,.3)';
   c.beginPath(); c.ellipse(x, y+h*0.12, s*0.72, s*0.2, 0, 0, 7); c.fill();
 
   // curtain wall
   const wallH=h*0.55;
-  c.fillStyle='#9a9284';
+  c.fillStyle=skin?.wall||'#9a9284';
   c.fillRect(x-w*0.55, y-wallH, w*1.1, wallH);
   c.fillStyle='rgba(0,0,0,.15)';
   c.fillRect(x+w*0.1, y-wallH, w*0.45, wallH);
   const cw=w*0.09;
-  for(let i=0;i<6;i++){c.fillStyle='#9a9284';c.fillRect(x-w*0.55+i*cw*1.5, y-wallH-cw*0.8, cw, cw*0.8);}
+  for(let i=0;i<6;i++){c.fillStyle=skin?.wall||'#9a9284';c.fillRect(x-w*0.55+i*cw*1.5, y-wallH-cw*0.8, cw, cw*0.8);}
   // gate
   c.fillStyle='#4a3524';
   c.beginPath();
@@ -88,15 +88,15 @@ export function drawCastle(c, x, y, s, color, t, power=0, level=0){
 
   // main keep
   const kw=s*0.5, kh=h*1.15;
-  c.fillStyle='#a89f90';
+  c.fillStyle=skin?.keep||'#a89f90';
   c.fillRect(x-kw/2, y-kh-wallH*0.35, kw, kh);
   c.fillStyle='rgba(0,0,0,.12)';
   c.fillRect(x+kw*0.12, y-kh-wallH*0.35, kw*0.38, kh);
-  for(let i=0;i<3;i++){c.fillStyle='#a89f90';c.fillRect(x-kw/2+i*kw*0.4, y-kh-wallH*0.35-kw*0.16, kw*0.22, kw*0.16);}
+  for(let i=0;i<3;i++){c.fillStyle=skin?.keep||'#a89f90';c.fillRect(x-kw/2+i*kw*0.4, y-kh-wallH*0.35-kw*0.16, kw*0.22, kw*0.16);}
 
   // corner towers with faction-colored roofs
-  drawTower(c, x-w*0.55, y-wallH*0.55, s*0.28, {roofColor:color});
-  drawTower(c, x+w*0.55, y-wallH*0.55, s*0.28, {roofColor:color});
+  drawTower(c, x-w*0.55, y-wallH*0.55, s*0.28, {body:skin?.wall,shade:skin?.shade,roofColor:color});
+  drawTower(c, x+w*0.55, y-wallH*0.55, s*0.28, {body:skin?.wall,shade:skin?.shade,roofColor:color});
 
   // flag on keep
   drawFlag(c, x, y-kh-wallH*0.35-kw*0.16, s*0.5, s*0.55, color, t);

@@ -9,6 +9,7 @@ export {drawBuilding} from './buildings.js';
 import {FACTIONS} from '../config.js';
 import {armyPower} from '../combat.js';
 import {pointOnRoute} from './pathfinding.js';
+import {castleSkinById} from '../cosmetics.js';
 
 const COL=['#3d6a8f','#4a7fa5','#e5d5a0','#a8b06e','#9aa763','#7d8f4e','#5f7a42','#a39a63','#8f8a70','#dfe7ee'];
 
@@ -313,7 +314,7 @@ export class Renderer{
       const[hx,hy]=scr(this.S.homePos.x,this.S.homePos.y);
       const keepLv=this.S.buildings.find(b=>b.type==='keep')?.level||1;
       if(near){
-        drawCastle(c,hx,hy,ppu*1.5,'#ffd166',this.t,0,keepLv);
+        drawCastle(c,hx,hy,ppu*1.5,(castleSkinById(this.S.profile?.castleSkinId)?.colors?.roof)||'#ffd166',this.t,0,keepLv,castleSkinById(this.S.profile?.castleSkinId)?.colors||null);
         this._label2(c,'⭐ قلعه شما','⚔'+this._fmt(armyPower(this.S.troops))+' • 👥'+this._fmt((Object.values(this.S.troops).reduce((a,b)=>a+b,0))),hx,hy+ppu*1.5*0.72,'#ffe9a8',ppu);
       }else{
         c.fillStyle='#ffd166';c.strokeStyle='#2a1c05';c.lineWidth=3;
