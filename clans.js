@@ -91,6 +91,8 @@ export function ensureShield(S,now=Date.now()){
   if(S.shield.day1){S.shield.until=now+PROT_DAY1_MS;S.shield.day1=false;}
   return S.shield;}
 export const shieldActive=(S,now=Date.now())=>{ensureShield(S,now);return S.shield.until>now;};
+// هر کسی حمله کند، شیلد خودش از بین می‌رود
+export function breakShield(S,now=Date.now()){ensureShield(S,now);const was=S.shield.until>now;S.shield.until=0;return was;}
 export const shieldLeft=(S,now=Date.now())=>Math.max(0,S.shield.until-now);
 export function buyShield(S,hours,now=Date.now()){
   const cost=hours===24?SHOP.protection24.cost:SHOP.protection12.cost;

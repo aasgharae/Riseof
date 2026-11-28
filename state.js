@@ -75,4 +75,4 @@ export const load=()=>ensureDefaults(loadRaw());
 export function save(s){try{localStorage.setItem(SAVE_KEY,JSON.stringify(s));}catch(e){}}
 export function storageCap(s){const k=(s.buildings.find(b=>b.type==='keep')?.level||1);return STORAGE_BASE+k*1000000;}
 export function troopCap(s){return Infinity;}
-export function addLog(s,kind,text){s.log.unshift({t:Date.now(),kind,text});if(s.log.length>60)s.log.length=60;}
+export function addLog(s,kind,text,detail){const e={t:Date.now(),id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),kind,text};if(detail)e.d=detail;s.log.unshift(e);if(s.log.length>120)s.log.length=120;}

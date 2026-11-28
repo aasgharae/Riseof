@@ -143,3 +143,7 @@ textarea.sinput{resize:vertical;line-height:1.8}
 #sheetBody .map-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
 #sheetBody .map-action{min-height:76px;border:1px solid var(--line);border-radius:14px;background:var(--card2);color:var(--txt);font-size:14px;font-weight:800;cursor:pointer}
 #sheetBody .map-action:disabled{opacity:.38;cursor:not-allowed}
+
+.msg.rep-win{border-right:3px solid var(--green)}
+.msg.rep-lose{border-right:3px solid var(--red)}
+.card .q{justify-content:space-between;gap:8px;flex-wrap:wrap}
