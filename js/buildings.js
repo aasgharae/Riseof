@@ -219,7 +219,6 @@ export function drawBuilding(c,type,px,py,s,level,t,opts={}){
   else if(type==='lumber')lumber(c,px,py,s,tier,t,pal);
   else if(type==='quarry')quarry(c,px,py,s,tier,t,pal);
   else if(type==='ironmine')mine(c,px,py,s,tier,t,pal,false);
-  else if(type==='goldmine')mine(c,px,py,s,tier,t,pal,true);
   else if(type==='barracks')barracks(c,px,py,s,tier,t,pal);
   else if(type==='muster')muster(c,px,py,s,tier,t,pal);
   else if(type==='hospital')hospital(c,px,py,s,tier,t,pal);

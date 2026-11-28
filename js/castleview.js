@@ -6,7 +6,7 @@ import{drawPine,drawOak,drawBush,drawHill,drawMountain}from'./scenery.js';
 const BX0=-5,BY0=-4,BW=36,BH=29,BR=34;          // ناحیه پخته‌شده (واحد شبکه) و پیکسل به ازای هر واحد
 const CX0=2.4,CX1=23.6,CY0=2.7,CY1=17.5;           // حصار حیاط
 const GATE={x:13,y:17.5};
-const HAULERS={farm:['wheat','#c9a94d'],lumber:['log','#4d7a3e'],quarry:['stone','#8a8d93'],ironmine:['ore','#5e6c7a'],goldmine:['gold','#c9a02f']};
+const HAULERS={farm:['wheat','#c9a94d'],lumber:['log','#4d7a3e'],quarry:['stone','#8a8d93'],ironmine:['ore','#5e6c7a']};
 
 function segDist(px,py,ax,ay,bx,by){const dx=bx-ax,dy=by-ay,l=dx*dx+dy*dy||1;let t=((px-ax)*dx+(py-ay)*dy)/l;t=Math.max(0,Math.min(1,t));return Math.hypot(px-(ax+dx*t),py-(ay+dy*t));}
 const bez=(e,u)=>{const a=1-u;return[a*a*e.ax+2*a*u*e.cx+u*u*e.bx,a*a*e.ay+2*a*u*e.cy+u*u*e.by];};
@@ -202,7 +202,7 @@ export class CastleScene{
     const hat=w.role;
     if(hat==='farm'){c.fillStyle='#e8c860';c.beginPath();c.ellipse(px,y-h*0.9,h*0.24,h*0.06,0,0,7);c.fill();c.beginPath();c.arc(px,y-h*0.9,h*0.12,Math.PI,0);c.fill();}
     else if(hat==='lumber'){c.fillStyle='#3f6a32';c.beginPath();c.arc(px,y-h*0.86,h*0.14,Math.PI,0);c.fill();}
-    else if(hat==='quarry'||hat==='ironmine'||hat==='goldmine'||hat==='builder'){c.fillStyle='#f2c230';c.beginPath();c.arc(px,y-h*0.86,h*0.15,Math.PI,0);c.fill();c.fillRect(px-h*0.17,y-h*0.87,h*0.34,h*0.04);}
+    else if(hat==='quarry'||hat==='ironmine'||hat==='builder'){c.fillStyle='#f2c230';c.beginPath();c.arc(px,y-h*0.86,h*0.15,Math.PI,0);c.fill();c.fillRect(px-h*0.17,y-h*0.87,h*0.34,h*0.04);}
     else if(hat==='soldier'||hat==='guard'){c.fillStyle='#9aa0aa';c.beginPath();c.arc(px,y-h*0.86,h*0.15,Math.PI,0);c.fill();
       if(hat==='guard'){c.fillStyle='#d23b3b';c.fillRect(px-h*0.02,y-h*1.08,h*0.04,h*0.1);}}
     else if(hat==='nurse'){c.fillStyle='#fff';c.beginPath();c.arc(px,y-h*0.88,h*0.14,Math.PI,0);c.fill();c.fillStyle='#d83b3b';c.fillRect(px-h*0.02,y-h*0.98,h*0.04,h*0.08);c.fillRect(px-h*0.04,y-h*0.96,h*0.08,h*0.03);}
