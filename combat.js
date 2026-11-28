@@ -49,6 +49,7 @@ export function battle(att,def,wall=0,wallK=15,mods={}){
   const defArmy=def.army||{};
   let atkRaw=0;for(const k in att){if(!TROOPS[k]||TROOP_CLASS[k]==='spy')continue;atkRaw+=att[k]*TROOPS[k].power*((mods.cls&&mods.cls[TROOP_CLASS[k]])||1);}
   atkRaw*=(mods.atk||1);
+  if(mods.weakTo&&mods.weakPenalty){const shares=classShares(defArmy);const exposed=shares[mods.weakTo]||0;atkRaw*=1-Math.min(0.45,mods.weakPenalty*exposed);}
   if((att.royal||0)>0)atkRaw*=1.15;else if((att.knight||0)>0)atkRaw*=1.1;
   const defBase=def.power!=null?def.power:armyPower(defArmy);
   const siege=classShares(att).siege;
@@ -66,7 +67,7 @@ export function battle(att,def,wall=0,wallK=15,mods={}){
 // سازگاری با نسخه‌های قبل
 export function resolveAttack(army,tribe,wallLvl=0){
   const r=battle(army,{army:tribe.garrison||{},power:tribe.power||0},wallLvl,15);
-  return{win:r.win,atk:r.atk,def:r.def,loot:r.win?(tribe.loot||{gold:200}):{}};}
+  const loot={...(tribe.loot||{})};delete loot.gold;return{win:r.win,atk:r.atk,def:r.def,loot:r.win?loot:{}};}
 
 // ---- غنیمت منطقی: به اختلاف قدرت و ظرفیت حمل بازماندگان وابسته است ----
 // ۰ = برد با اختلاف خیلی کم، ۱ = برد قاطع (قدرت مهاجم ≥ ۲ برابر دفاع)

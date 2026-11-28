@@ -2,7 +2,7 @@
 import{save}from'./state.js';
 import{addSys,playerById}from'./social.js';
 
-export const CLAN_COST=500000;        // هزینه‌ی ساخت قبیله با سکه
+export const CLAN_COST=0;        // هزینه‌ی ساخت قبیله با سکه
 export const CLAN_MAX_CASTLES=15;     // سقف اعضای هر قبیله
 export const PROT_DAY1_MS=24*3600*1000; // جادوی روز اول
 
@@ -10,9 +10,7 @@ export const PROT_DAY1_MS=24*3600*1000; // جادوی روز اول
 export function createClan(S,name){
   name=(name||'').trim();if(!name)return toastErr('نام قبیله را بنویس');
   if(S.clans.some(c=>c.name===name))return toastErr('این نام قبلاً گرفته شده');
-  if(S.resources.gold<CLAN_COST)return toastErr('سکه کافی نیست ('+CLAN_COST+'🪙 لازم)');
   if(S.myClan)return toastErr('قبلاً در قبیله‌ای هستی');
-  S.resources.gold-=CLAN_COST;
   const c={id:'cl'+Date.now(),name,owner:'me',members:['me'],created:Date.now()};
   S.clans.push(c);S.myClan=c.id;
   const me=playerById(S,'me');me.clanId=c.id;me.clanRole='owner';
@@ -94,18 +92,10 @@ export const shieldActive=(S,now=Date.now())=>{ensureShield(S,now);return S.shie
 // هر کسی حمله کند، شیلد خودش از بین می‌رود
 export function breakShield(S,now=Date.now()){ensureShield(S,now);const was=S.shield.until>now;S.shield.until=0;return was;}
 export const shieldLeft=(S,now=Date.now())=>Math.max(0,S.shield.until-now);
-export function buyShield(S,hours,now=Date.now()){
-  const cost=hours===24?SHOP.protection24.cost:SHOP.protection12.cost;
-  if(S.resources.gold<cost)return{ok:false,msg:'سکه کافی نیست'};
-  S.resources.gold-=cost;ensureShield(S,now);
-  S.shield.until=Math.max(S.shield.until,now)+hours*3600*1000;
-  addSys(S,'🛡 جادوی محافظت '+hours+' ساعته فعال شد');
-  save(S);return{ok:true};}
+export function buyShield(){return{ok:false,msg:'خرید محافظت با سکه در اقتصاد جدید غیرفعال است'};}
 
 // ---------- فروشگاه ----------
 export const SHOP={
-  protection12:{name:'جادوی محافظت ۱۲ ساعته',icon:'🛡',cost:250,hours:12},
-  protection24:{name:'جادوی محافظت ۲۴ ساعته',icon:'🛡',cost:450,hours:24},
   food:{name:'بسته غذا',icon:'🌾',cost:120,amount:5000000},
   wood:{name:'بسته چوب',icon:'🪵',cost:120,amount:5000000},
   stone:{name:'بسته سنگ',icon:'🪨',cost:150,amount:4000000},
@@ -113,8 +103,7 @@ export const SHOP={
 export function buyItem(S,key){
   const it=SHOP[key];if(!it)return{ok:false,msg:'نامعتبر'};
   if(S.resources.gold<it.cost)return{ok:false,msg:'سکه کافی نیست ('+it.cost+'🪙)'};
-  if(it.hours){const r=buyShield(S,it.hours);if(!r.ok)return r;}
-  else{S.resources.gold-=it.cost;S.resources[key]=(S.resources[key]||0)+it.amount;addSys(S,'🛒 '+it.name+' خریداری شد');save(S);}
+  S.resources.gold-=it.cost;S.resources[key]=(S.resources[key]||0)+it.amount;addSys(S,'🛒 '+it.name+' خریداری شد');save(S);
   return{ok:true};}
 
 // ---------- چت گروهی قبیله ----------

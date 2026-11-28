@@ -7,7 +7,7 @@ buildings:[
 {id:'keep-1',type:'keep',x:13,y:8,level:1},{id:'farm-1',type:'farm',x:8,y:6,level:1},
 {id:'farm-2',type:'farm',x:18,y:6,level:1},{id:'lumber-1',type:'lumber',x:6,y:10,level:1},
 {id:'lumber-2',type:'lumber',x:20,y:10,level:1},{id:'quarry-1',type:'quarry',x:9,y:13,level:1},
-{id:'iron-1',type:'ironmine',x:17,y:13,level:1},{id:'gold-1',type:'goldmine',x:13,y:4,level:1},
+{id:'iron-1',type:'ironmine',x:17,y:13,level:1},
 {id:'bar-1',type:'barracks',x:5,y:6,level:1},{id:'bar-2',type:'barracks',x:21,y:6,level:1},
 {id:'bar-3',type:'barracks',x:13,y:12,level:1},{id:'muster-1',type:'muster',x:13,y:15,level:1},
 {id:'wall-1',type:'wall',x:12,y:7,level:1},{id:'hideout-1',type:'hideout',x:22,y:15,level:1}],
@@ -58,6 +58,7 @@ export function ensureDefaults(S){
   S.camps=Array.isArray(S.camps)?S.camps:[];
   S.intel=S.intel&&typeof S.intel==='object'?S.intel:{};
   S.pastSeasons=Array.isArray(S.pastSeasons)?S.pastSeasons:[];
+  S.seasonHallOfFame=Array.isArray(S.seasonHallOfFame)?S.seasonHallOfFame:[];
   S.chats=S.chats&&typeof S.chats==='object'?S.chats:{};
   S.unread=S.unread&&typeof S.unread==='object'?S.unread:{};
   S.players=Array.isArray(S.players)?S.players:[];
@@ -77,6 +78,9 @@ export function ensureDefaults(S){
   // null is meaningful to clans.js: it initializes the first-day shield once.
   if(!Object.prototype.hasOwnProperty.call(S,'shield'))S.shield=null;
   if(!S.cmd)S.cmd={tokens:1,unlocked:[],levels:{},emblems:0,granted:[]};
+  S.buildings=S.buildings.filter(b=>b&&b.type!=='goldmine');
+  S.upgrades=S.upgrades.filter(u=>u&&u.type!=='goldmine');
+  if(!S.resources.gold||S.resources.gold<0)S.resources.gold=0;
   if(!S.buildings.some(b=>b&&b.type==='hospital'))S.buildings.push({id:'hosp-1',type:'hospital',x:22,y:13,level:1});
   if(!S.buildings.some(b=>b&&b.type==='hideout'))S.buildings.push({id:'hideout-1',type:'hideout',x:22,y:15,level:1});
   if(!Number.isFinite(S.lastTickAt))S.lastTickAt=Date.now();

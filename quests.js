@@ -56,7 +56,7 @@ export const ACH=[
  {id:'seasonChampion',key:'seasonWins',ic:'🏆',name:'قهرمان فصل',cat:'فصلی',goals:[1,2,3,5],t:n=>'قهرمان '+n+' فصل ۴۵ روزه شو'},
  {id:'seasonElite',key:'seasonTop10',ic:'🌟',name:'نخبه فصل‌ها',cat:'فصلی',goals:[1,3,5,10],t:n=>'در '+n+' فصل بین ۱۰ نفر برتر باش'},
  {id:'seasonVeteran',key:'seasonParticipations',ic:'📅',name:'فرمانروای پایدار',cat:'فصلی',goals:[1,3,6,12],t:n=>'در '+n+' فصل شرکت کن'}];
-const ACH_GOLD=[60,180,450,1100,2600];
+const ACH_GOLD=[150,400,1000,2500,6000];
 
 export function getStat(S,key){
   if(key==='kills')return S.kills||0;
@@ -88,7 +88,7 @@ function makeSet(S,pool,count,seed,mult){
   for(let i=0;i<count;i++){
     const p=pool[idx.splice((rng()*idx.length)|0,1)[0]],tier=(rng()*p.goals.length)|0,goal=p.goals[tier];
     out.push({key:p.key,goal,ic:p.ic,label:p.t(goal),base:getStat(S,p.key),claimed:false,
-      reward:{gold:Math.floor((100+tier*70)*mult),food:Math.floor(600000*(1+tier)*mult),wood:Math.floor(450000*(1+tier)*mult),iron:Math.floor(180000*(1+tier)*mult)}});}
+      reward:{gold:Math.floor((250+tier*150)*mult),food:Math.floor(600000*(1+tier)*mult),wood:Math.floor(450000*(1+tier)*mult),iron:Math.floor(180000*(1+tier)*mult)}});}
   return out;}
 export function ensureQuests(S,now=Date.now()){
   S.stats=S.stats||{};

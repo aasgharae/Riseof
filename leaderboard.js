@@ -1,11 +1,12 @@
+import{BASE_AVATARS,DEFAULT_AVATAR_ID}from'./cosmetics.js';
 import{armyPower,armyCount}from'./combat.js';
 
 // همه شرکت‌کننده‌ها: قلعه‌های NPC + خود بازیکن
 export function boardEntries(S){
   const list=S.tribes.map(t=>({id:t.id,name:t.name,fac:t.factionName||'',faction:t.faction,color:t.color||'#aaa',
-    power:t.power||0,kills:t.kills||0,level:t.level,me:false}));
+    power:t.power||0,kills:t.kills||0,level:t.level,avatarId:t.avatarId||BASE_AVATARS[(Number(String(t.id).replace(/\D/g,''))||0)%BASE_AVATARS.length].id,me:false}));
   const keep=S.buildings?.find(b=>b.type==='keep')?.level||1;
-  list.push({id:'me',name:'⭐ شما',fac:'',faction:null,color:'#ffd166',power:armyPower(S.troops||{}),kills:S.kills||0,level:keep,me:true});
+  list.push({id:'me',name:'⭐ شما',fac:'',faction:null,color:'#ffd166',power:armyPower(S.troops||{}),kills:S.kills||0,level:keep,avatarId:S.profile?.avatarId||DEFAULT_AVATAR_ID,me:true});
   return list;}
 
 // key = 'power' | 'kills' — مرتب‌شده نزولی با رتبه

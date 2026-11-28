@@ -1,4 +1,4 @@
-import{SEASON,BOSS_POS}from'./config.js';
+import{SEASON,BOSS_POS,SEASON_START_RESOURCES}from'./config.js';
 import{TROOPS,TROOP_CLASS}from'./config.js';
 import{classShares}from'./combat.js';
 import{hash2}from'./js/noise.js';
@@ -36,16 +36,16 @@ export const npcScore=(e,progress)=>{const hits=Math.min(SEASON.maxHits,Math.flo
 export function bossBoard(S,now=Date.now()){
   const s=S.season,b=S.boss;if(!b)return[];
   const pr=Math.max(0,Math.min(1,(now-s.bossStart)/(s.end-s.bossStart)));
-  const rows=b.snap.map(e=>({id:e.id,name:e.n,color:e.c,dmg:npcScore(e,pr),me:false})).filter(r=>r.dmg>0);
-  if(b.hits>0)rows.push({id:'me',name:'⭐ شما',color:'#ffd166',dmg:b.dmg,me:true});
+  const rows=b.snap.map((e,i)=>({id:e.id,name:e.n,color:e.c,dmg:npcScore(e,pr),avatarId:e.avatarId||['base-warrior-f','base-archer-f','base-warrior-m','base-king-m'][i%4],me:false})).filter(r=>r.dmg>0);
+  if(b.hits>0)rows.push({id:'me',name:'⭐ شما',color:'#ffd166',dmg:b.dmg,avatarId:S.profile?.avatarId||'base-warrior-f',me:true});
   rows.sort((a,b2)=>b2.dmg-a.dmg);rows.forEach((r,i)=>r.rank=i+1);
   return rows;}
 export function rewardFor(rank,total){
-  if(rank===1)return{label:'🥇 قهرمان فصل',gold:3000,emblems:4,res:5e6};
-  if(rank<=10)return{label:'🏅 ۱۰ نفر برتر',gold:1500,emblems:2,res:3e6};
-  if(rank<=Math.max(10,Math.ceil(total*0.1)))return{label:'⭐ ۱۰٪ برتر',gold:800,emblems:1,res:2e6};
-  if(rank<=Math.ceil(total*0.5))return{label:'✔ ۵۰٪ برتر',gold:300,emblems:0,res:1e6};
-  return{label:'شرکت‌کننده',gold:100,emblems:0,res:3e5};}
+  if(rank===1)return{label:'🥇 قهرمان فصل',gold:3000,emblems:4};
+  if(rank<=10)return{label:'🏅 ۱۰ نفر برتر',gold:1500,emblems:2};
+  if(rank<=Math.max(10,Math.ceil(total*0.1)))return{label:'⭐ ۱۰٪ برتر',gold:800,emblems:1};
+  if(rank<=Math.ceil(total*0.5))return{label:'✔ ۵۰٪ برتر',gold:300,emblems:0};
+  return{label:'شرکت‌کننده',gold:100,emblems:0};}
 // پایان فصل: جایزه، ثبت تاریخچه و شروع فصل بعد
 export function finalizeSeason(S,now=Date.now()){
   const rows=bossBoard(S,S.season.end),me=rows.find(r=>r.me);
@@ -53,7 +53,7 @@ export function finalizeSeason(S,now=Date.now()){
   S.stats=S.stats||{};
   if(me){S.stats.seasonParticipations=(S.stats.seasonParticipations||0)+1;if(me.rank<=10)S.stats.seasonTop10=(S.stats.seasonTop10||0)+1;if(me.rank===1)S.stats.seasonWins=(S.stats.seasonWins||0)+1;
     const rw=rewardFor(me.rank,rows.length);
-    S.resources.gold=(S.resources.gold||0)+rw.gold;for(const k of['food','wood','stone','iron'])S.resources[k]=(S.resources[k]||0)+rw.res;
+    S.resources.gold=(S.resources.gold||0)+rw.gold;
     S.cmd.emblems=(S.cmd.emblems||0)+rw.emblems;
     let cosmetics=null;
     if(me.rank===1){
@@ -66,8 +66,13 @@ export function finalizeSeason(S,now=Date.now()){
       cosmetics={hero:prize.hero,castle:prize.castle};
     }
     res={season:S.season.id,rank:me.rank,total:rows.length,dmg:me.dmg,...rw,cosmetics};}
-  else res={season:S.season.id,rank:null,total:rows.length,dmg:0,label:'بدون شرکت در نبرد با غول',gold:0,emblems:0,res:0};
+  else res={season:S.season.id,rank:null,total:rows.length,dmg:0,label:'بدون شرکت در نبرد با غول',gold:0,emblems:0};
   S.pastSeasons=S.pastSeasons||[];S.pastSeasons.unshift(res);S.pastSeasons.length=Math.min(S.pastSeasons.length,8);
+  S.seasonHallOfFame=Array.isArray(S.seasonHallOfFame)?S.seasonHallOfFame:[];
+  S.seasonHallOfFame.unshift({season:S.season.id,champions:rows.slice(0,10).map(r=>({id:r.id,name:r.name,rank:r.rank,dmg:r.dmg,avatarId:r.avatarId||'base-warrior-f'}))});
+  S.seasonHallOfFame.length=Math.min(S.seasonHallOfFame.length,12);
+  // منابع فصلی پاک می‌شوند؛ خزانه سکه و پیشرفت‌های دائمی حفظ می‌شوند.
+  for(const k of ['food','wood','stone','iron'])S.resources[k]=SEASON_START_RESOURCES[k];
   S.season=newSeason(S.season.id+1,now);S.boss=null;
   return res;}
 // هر تیک: ساخت فصل، ظهور غول، پایان فصل

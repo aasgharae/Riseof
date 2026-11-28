@@ -1,7 +1,8 @@
 export const CONFIG={seasonLength:45,dayMs:86400000,tickMs:1000};
 
 // ---- منابع اولیه: خیلی بالا برای تست آزادانه (v3) ----
-export const START_RESOURCES={food:2000000000,wood:1500000000,stone:1200000000,iron:800000000,gold:5000000};
+export const START_RESOURCES={food:2000000000,wood:1500000000,stone:1200000000,iron:800000000,gold:0};
+export const SEASON_START_RESOURCES={food:100000,wood:75000,stone:50000,iron:25000};
 export const STORAGE_BASE=50000000000;
 export const BATCH_OPTIONS=[1,10,100,1000,10000];
 export const MAX_LEVEL=30;
@@ -58,14 +59,13 @@ export const COUNTER={
  cav:{inf:1,spear:0.6,archer:1.6,cav:1,siege:1.4},
  siege:{inf:1.2,spear:1,archer:1,cav:0.7,siege:1}};
 
-// ---- buildings: all upgrade to level 30 ----
+// ---- buildings: gold mine removed in v13 ----
 export const BUILD_DEFS={
 keep:{name:'قلعه',icon:'🏰',max:30,baseTime:40},
 farm:{name:'مزرعه',icon:'🌾',max:30,baseTime:25},
 lumber:{name:'چوب‌بری',icon:'🪵',max:30,baseTime:25},
 quarry:{name:'معدن سنگ',icon:'🪨',max:30,baseTime:30},
 ironmine:{name:'معدن آهن',icon:'⛓️',max:30,baseTime:35},
-goldmine:{name:'معدن طلا',icon:'🪙',max:30,baseTime:45},
 barracks:{name:'سربازخانه',icon:'⚔️',max:30,baseTime:50},
 muster:{name:'لشکر',icon:'🚩',max:30,baseTime:60},
 wall:{name:'دیوار',icon:'🧱',max:30,baseTime:45},
@@ -83,7 +83,6 @@ export function buildingProd(t,l){
   if(t==='lumber')return{wood:24*l};
   if(t==='quarry')return{stone:18*l};
   if(t==='ironmine')return{iron:12*l};
-  if(t==='goldmine')return{gold:2*l};
   return{};}
 
 // cost grows ~55% per level; NO gold cost anywhere

@@ -1,5 +1,5 @@
 import{TROOPS,BUILD_DEFS,BATCH_OPTIONS,EXTRA_NAMES,FACTIONS,MAX_LEVEL,CLASS_INFO,TROOP_CLASS,COUNTER,NPC,hospitalCap,buildingProd,upgradeCost,upgradeTime,speedCost,expeditionCap,maxMarches,marchSpeed,factionAt,tribeLevelAt,WORLD_W,WORLD_H,CASTLE_COUNT,hideoutCap,formatDuration}from'./config.js';
-import{BASE_AVATARS,HERO_SKINS,CASTLE_SKINS,DEFAULT_AVATAR_ID,avatarById,castleSkinById}from'./cosmetics.js';
+import{BASE_AVATARS,HERO_SKINS,CASTLE_SKINS,PROFILE_FRAMES,DEFAULT_AVATAR_ID,avatarById,castleSkinById}from'./cosmetics.js';
 import{SAVE_KEY,freshState,load,save,storageCap,addLog}from'./state.js';
 import{armyPower,armyCount,battle,genGarrison,troopMultVs,bestCounters,marginFactor,carryLimit}from'./combat.js';
 import{hospitalLevel,woundedCount,healingCount,addWounded,healCost,healTime}from'./hospital.js';
@@ -13,7 +13,7 @@ import{ensureSeason,bossPhase,weaknessAt,bossHit,bossBoard,rewardFor,fmtDur,CLS_
 import{campSpotError,campAmbush,campMods,campSpeed}from'./camps.js';
 import{ensurePlayers,others,playerById,threadOf,pushMsg,unreadFor,markRead,bumpUnread,totalUnread,addSys,ambientReply,ambientRandom}from'./social.js';
 import{initAdmin}from'./admin.js';
-import{createClan,myClan,clanById,clanMembers,castleCount,joinClan,requestClan,approveClanRequest,rejectClanRequest,leaveClan,kickClan,allied,ensureShield,shieldActive,breakShield,shieldLeft,buyShield,SHOP,buyItem,CLAN_COST,CLAN_MAX_CASTLES,clanChatOf,pushClanMsg,unreadClan}from'./clans.js';
+import{createClan,myClan,clanById,clanMembers,castleCount,joinClan,requestClan,approveClanRequest,rejectClanRequest,leaveClan,kickClan,allied,ensureShield,shieldActive,breakShield,shieldLeft,SHOP,buyItem,CLAN_COST,CLAN_MAX_CASTLES,clanChatOf,pushClanMsg,unreadClan}from'./clans.js';
 import{ENERGY,SEASON,CAMP,maxCamps,BOSS_POS}from'./config.js';
 import{Renderer}from'./js/renderer.js';
 import{findPath}from'./js/pathfinding.js';
@@ -277,7 +277,7 @@ function resolveMarch(m){
     enemy:{army:garSnap,lost:r.defLosses,kills:r.win?gcount:Math.floor(gcount*r.dLoss)},...extra});
   if(r.win){
     const lm=1+(fx.loot||0),share=0.35+0.65*marginFactor(r.atk/Math.max(1,r.def)),want={};
-    for(const k in tr.loot)want[k]=Math.floor(tr.loot[k]*lm*share);
+    for(const k in tr.loot)if(site||k!=='gold')want[k]=Math.floor(tr.loot[k]*lm*share);
     const cl=carryLimit(want,armyCount(survivors),fx.loot||0),loot=cl.loot;
     for(const k in loot)S.resources[k]=(S.resources[k]||0)+loot[k];
     const lootNotes=['🎒 سهم غنیمت از اختلاف قدرت: '+Math.round(share*100)+'٪'+(cl.capped?' • ظرفیت حمل بازماندگان محدودکننده بود ('+fmt(cl.want)+' → '+fmt(cl.cap)+')':'')];
@@ -292,8 +292,8 @@ function resolveMarch(m){
       S.tribes=S.tribes.filter(t=>t.id!==tr.id);S.conquered++;
       S.factionKills=S.factionKills||{};S.factionKills[tr.faction]=(S.factionKills[tr.faction]||0)+1;
       queueRespawn(S,tr,now,Math.random);
-      addLog(S,'win','🏰 پیروزی! '+tr.name+' (Lv'+tr.level+') فتح شد — ☠'+fmt(gcount)+' دشمن'+lostTxt+' — غنیمت: '+fmt(loot.gold||0)+'🪙 '+fmt(loot.food||0)+'🌾'+mulNote(r.atkMul)+tag,det({loot,notes:lootNotes}));
-      toast('🏰 <b>پیروزی!</b> '+tr.name+' فتح شد — غنیمت: +'+fmt(loot.gold||0)+'🪙');}
+      addLog(S,'win','🏰 پیروزی! '+tr.name+' (Lv'+tr.level+') فتح شد — ☠'+fmt(gcount)+' دشمن'+lostTxt+' — غنیمت منابع: '+fmt(loot.food||0)+'🌾 '+fmt(loot.wood||0)+'🪵 '+fmt(loot.stone||0)+'🪨 '+fmt(loot.iron||0)+'⛓️'+mulNote(r.atkMul)+tag,det({loot,notes:lootNotes}));
+      toast('🏰 <b>پیروزی!</b> '+tr.name+' فتح شد؛ منابع معمولی به غنیمت گرفتی.');}
   }else{
     S.kills=(S.kills||0)+Math.floor(gcount*r.dLoss);
     scaleTribe(tr,Math.max(0.3,1-r.dLoss));
@@ -353,7 +353,7 @@ window.inviteClan=(id)=>{const t=getTarget(id);const c=myClan(S);
 function renderClan(){const B=$('sheetBody');const c=myClan(S);
   let h='<div class="seg">'+[['clanhome','🏳 قبیله من'],['shop','🛒 فروشگاه']].map(([k,l])=>'<button class="'+(cur===k?'on':'')+'" onclick="openSheet(\''+k+'\')">'+l+'</button>').join('')+'</div>';
   if(!c){
-    h+='<div class="card hero"><div class="bhead">🏳 <b>ساخت قبیله</b><span class="lvl">'+CLAN_COST+'🪙</span></div>'
+    h+='<div class="card hero"><div class="bhead">🏳 <b>ساخت قبیله</b><span class="lvl">رایگان</span></div>'
       +'<div class="q">• هر قبیله حداکثر ۱۵ قلعه دارد<br>• اعضای قبیله متحدند و حمله به هم ممنوع<br>• چت گروهی مخصوص قبیله داری</div>'
       +'<div class="row"><input id="clanName" class="sinput" style="flex:1" placeholder="نام قبیله…" maxlength="20"><button class="btn" onclick="doCreateClan()">🏳 تأسیس</button></div></div>';
     const open=S.clans.filter(x=>x.members.length<CLAN_MAX_CASTLES&&x.owner!=='me');
@@ -385,9 +385,9 @@ window.doKickClan=id=>{kickClan(S,id);renderSheet();};
 function renderShop(){const B=$('sheetBody');
   let h='<div class="seg">'+[['clan','🏳 قبیله من'],['shop','🛒 فروشگاه']].map(([k,l])=>'<button class="'+(cur==='shop'?'on':'')+'" onclick="openSheet(\''+k+'\')">'+l+'</button>').join('')+'</div>';
   const sh=shieldActive(S);
-  h+='<div class="card hero"><div class="bhead">🛡 <b>جادوی محافظت</b><span class="lvl">'+(sh?('فعال — '+Math.ceil(shieldLeft(S)/3600000)+'س دیگر'):'غیرفعال')+'</span></div>'
+  h+='<div class="card hero"><div class="bhead">🛡 <b>محافظت آغازین</b><span class="lvl">'+(sh?('فعال — '+Math.ceil(shieldLeft(S)/3600000)+'س دیگر'):'غیرفعال')+'</span></div>'
     +'<div class="bar"><i style="width:'+Math.min(100,shieldLeft(S)/(24*3600000)*100)+'%"></i></div>'
-    +'<div class="q">تا پایان جادو، هیچ‌کس نمی‌تواند به قلعه‌ات حمله کند • ⚠️ اگر خودت حمله کنی شیلد از بین می‌رود</div></div>';
+    +'<div class="q">محافظت آغازین بازی فعال است؛ خرید محافظت با سکه در اقتصاد v13 وجود ندارد. اگر خودت حمله کنی شیلد از بین می‌رود</div></div>';
   h+='<div class="statgrid">'+Object.entries(SHOP).map(([k,it])=>
     '<div class="stat" style="cursor:pointer" onclick="doBuy(\''+k+'\')"><div style="font-size:26px">'+it.icon+'</div>'+it.name+'<br><b style="color:var(--gold)">'+it.cost+'🪙</b></div>').join('')+'</div>'
     +'<div class="q" style="justify-content:center;margin-top:8px">روی هر کالا بزن تا با سکه خریده شود • موجودی: '+fmt(S.resources.gold)+'🪙</div>';
@@ -627,7 +627,7 @@ if(cur==='detail'||cur==='campSetup'){
     h+='<div class="card hero"><div class="bhead">'+(site?'<span style="font-size:20px">'+SITE_KINDS[t.kind].icon+'</span>':'<span class="fdot" style="background:'+(t.color||'#e5484d')+'"></span>')+'<b>'+t.name+'</b><span class="lvl">Lv'+t.level+'</span></div>'
       +'<div class="q">'+(site?SITE_KINDS[t.kind].note:(t.factionName||''))+' • ⚔ پاور دفاع: '+(it?fmt(def)+(t.wall?' (🧱 دیوار Lv'+t.wall+')':''):'<b>≈'+fmt(estPower(t))+'</b> (تخمینی)')+'</div>'
       +'<div class="q">📏 فاصله: '+Math.round(dist(t))+' • ⏱ رسیدن: ' +formatDuration(eta(t))+'</div>'
-      +'<div class="q">💰 غنیمت: '+(it?costStr(t.loot):'❓ ناشناخته')+'</div>'
+      +'<div class="q">💰 غنیمت: '+(it?costStr(site?t.loot:Object.fromEntries(Object.entries(t.loot||{}).filter(([k])=>k!=='gold'))):'❓ ناشناخته')+'</div>'
       +'<div class="q">🛡 گارد: '+(it?Object.entries(t.garrison||{}).map(([k,v])=>TROOPS[k].icon+fmt(v)).join(' ')+' • 🕵️ '+fmt(it.spies)+' جاسوس':'❓ ناشناخته — جاسوسی کن')+'</div>';
     if(it){const best=bestCounters(t.garrison||{});
       if(best.length)h+='<div class="q">💡 پیشنهاد تقابل: '+best.map(b=>b.icon+' '+b.name+' ×'+b.mult.toFixed(2)).join(' و ')+'</div>';
@@ -665,9 +665,11 @@ if(cur==='cmd'){
   let h=sheetSeg()+'<div class="card hero"><div class="bhead">🎖 <b>فرماندهان ارشد</b><span class="lvl">'+c.unlocked.length+'/'+MAX_UNLOCK+'</span></div>'
     +'<div class="q">🎫 توکن آزاد: <b>'+c.tokens+'</b> • 🏅 نشان ارتقا: <b>'+c.emblems+'</b></div>'
     +'<div class="q">'+(nextTok?'🎫 توکن بعدی: وقتی قلعه به <b>Lv'+nextTok+'</b> برسد (الان Lv'+lv+')':'همه‌ی ۴ توکن گرفته شد')+'</div>'
+    +'<div class="q">هر فرمانده نقطه‌ضعف مشخص دارد؛ دشمن می‌تواند با انتخاب ترکیب مناسب از آن استفاده کند.</div>'
     +'<div class="q">🎖 نشان ارتقا کمیاب و محدود است: از 🕳️ غارها و 💎 گنج‌های پنهان نقشه با شانس کم پیدا می‌شود (نشان‌های باقی‌مانده‌ی این فصل: '+(S.season?S.season.itemPool:0)+'). با 🕵️ جاسوس می‌توانی هاله‌ی آیتم را ببینی.</div></div>';
   const card=(cm,own)=>{const lvl=c.levels[cm.id]||1,st=busy.has(cm.id),cost=cmdUpCost(lvl);
-    return '<div class="cmdcard" style="--c:'+cm.color+'"><div class="cport">'+cm.icon+'</div><div class="cbody"><div class="trow"><b>'+cm.name+' <span class="chip">'+cm.title+'</span></b>'+(own?'<span class="tpow">Lv'+lvl+'/'+MAX_CMD_LEVEL+(st?' • ⚔ در مأموریت':'')+'</span>':'')+'</div>'
+    return '<div class="cmdcard" style="--c:'+cm.color+'"><div class="cport commander-portrait"><img src="'+cm.image+'" alt="'+cm.name+'"></div><div class="cbody"><div class="q">'+cm.gender+' • '+cm.rarity+'</div><div class="trow"><b>'+cm.name+' <span class="chip">'+cm.title+'</span></b>'+(own?'<span class="tpow">Lv'+lvl+'/'+MAX_CMD_LEVEL+(st?' • ⚔ در مأموریت':'')+'</span>':'')+'</div>'
+      +'<div class="q"><b>✨ '+cm.skill.name+'</b> — '+cm.skill.desc+'</div>'
       +'<div class="q" style="font-style:italic;color:var(--gold)">«'+cm.lure+'»</div>'
       +'<div class="q">'+fxChips(cm.fx,lvl).map(x=>'<span class="chip">'+x+'</span>').join(' ')+'</div>'
       +(own?(lvl>=MAX_CMD_LEVEL?'<div class="q">🏆 حداکثر سطح</div>':'<button class="btn sm" '+(c.emblems>=cost?'':'disabled')+' onclick="upCmd(\''+cm.id+'\')">⬆ ارتقا به Lv'+(lvl+1)+' — 🏅'+cost+' نشان</button>')
@@ -690,10 +692,11 @@ if(cur==='boss'){
       +'<div class="q">💥 امتیاز شما: <b>'+fmt(S.boss.dmg)+'</b> • '+S.boss.hits+' ضربه • '+(me?'رتبه <b>#'+me.rank+'</b> از '+rows.length:'هنوز ضربه‌ای نزده‌ای')+'</div>'
       +'<div class="q">🌍 مجموع ضربه‌ی جهان: '+fmt(total)+' • ⚡ انرژی: '+S.energy.v+'</div>'
       +'<button class="btn wide" onclick="openDetail(\'boss\')">🗿 اعزام لشکر به غول</button></div>';
-    h+='<div class="q"><b>🏆 برترین‌ها</b></div>'+rows.slice(0,10).map(r=>'<div class="res'+(r.me?' me':'')+'"><span class="rank">'+(['🥇','🥈','🥉'][r.rank-1]||'#'+r.rank)+'</span><span class="fdot" style="background:'+r.color+'"></span><div><b>'+r.name+'</b></div><div class="meta"><b style="color:var(--gold)">💥'+fmt(r.dmg)+'</b></div></div>').join('')
-      +(me&&me.rank>10?'<div class="q" style="justify-content:center">⋯</div><div class="res me"><span class="rank">#'+me.rank+'</span><span class="fdot" style="background:#ffd166"></span><div><b>⭐ شما</b></div><div class="meta"><b style="color:var(--gold)">💥'+fmt(me.dmg)+'</b></div></div>':'');
+    h+='<div class="q"><b>🏆 برترین‌ها</b></div>'+rows.slice(0,10).map(r=>{const av=avatarById(r.avatarId||DEFAULT_AVATAR_ID);return '<div class="res'+(r.me?' me':'')+'"><span class="rank">'+(['🥇','🥈','🥉'][r.rank-1]||'#'+r.rank)+'</span>'+(av.image?'<img class="rank-avatar" src="'+av.image+'" alt="آواتار">':'<span class="rank-avatar">'+av.emoji+'</span>')+'<span class="fdot" style="background:'+r.color+'"></span><div><b>'+r.name+'</b></div><div class="meta"><b style="color:var(--gold)">💥'+fmt(r.dmg)+'</b></div></div>';}).join('')
+      +(me&&me.rank>10?'<div class="q" style="justify-content:center">⋯</div><div class="res me"><span class="rank">#'+me.rank+'</span>'+(avatarById(me.avatarId||DEFAULT_AVATAR_ID).image?'<img class="rank-avatar" src="'+avatarById(me.avatarId||DEFAULT_AVATAR_ID).image+'" alt="آواتار">':'<span class="rank-avatar">'+avatarById(me.avatarId||DEFAULT_AVATAR_ID).emoji+'</span>')+'<span class="fdot" style="background:#ffd166"></span><div><b>⭐ شما</b></div><div class="meta"><b style="color:var(--gold)">💥'+fmt(me.dmg)+'</b></div></div>':'');
     h+='<div class="card"><div class="q"><b>🎁 جایزه‌ها</b> (پایان فصل): 🥇 ۳۰۰۰🪙+۴🎖 • ۱۰ نفر برتر ۱۵۰۰🪙+۲🎖 • ۱۰٪ برتر ۸۰۰🪙+۱🎖 • ۵۰٪ برتر ۳۰۰🪙 • شرکت‌کننده ۱۰۰🪙</div></div>';}
-  if(S.pastSeasons&&S.pastSeasons.length)h+='<div class="q"><b>📚 فصل‌های قبل</b></div>'+S.pastSeasons.map(p=>'<div class="q">فصل '+p.season+': '+(p.rank?'رتبه #'+p.rank+' از '+p.total+' • 💥'+fmt(p.dmg):'شرکت نکردی')+' • '+p.label+'</div>').join('');
+  if(S.pastSeasons&&S.pastSeasons.length)h+='<div class="q"><b>📚 کارنامه فصل‌های شما</b></div>'+S.pastSeasons.map(p=>'<div class="q">فصل '+p.season+': '+(p.rank?'رتبه #'+p.rank+' از '+p.total+' • 💥'+fmt(p.dmg):'شرکت نکردی')+' • '+p.label+'</div>').join('');
+  if(S.seasonHallOfFame?.length)h+='<div class="card"><div class="bhead"><b>🏆 تالار افتخارات فصل‌های گذشته</b></div>'+S.seasonHallOfFame.map(se=>'<div class="q"><b>فصل '+se.season+'</b></div>'+se.champions.slice(0,3).map(ch=>{const av=avatarById(ch.avatarId||DEFAULT_AVATAR_ID);return '<div class="res"><span class="rank">'+(['🥇','🥈','🥉'][ch.rank-1]||'#'+ch.rank)+'</span>'+(av.image?'<img class="rank-avatar" src="'+av.image+'" alt="آواتار">':'<span class="rank-avatar">'+av.emoji+'</span>')+'<div><b>'+ch.name+'</b></div><div class="meta">💥'+fmt(ch.dmg)+'</div></div>';}).join('')).join('')+'</div>';
   B.innerHTML=h;}
 if(cur==='search'){
   let h='<input id="searchIn" class="sinput" placeholder="🔍 نام قلعه یا قبیله… (مثلاً: اژدها)" value="'+searchQ+'" oninput="doSearch(this.value)">';
@@ -717,8 +720,9 @@ if(cur==='board'){
     const key=boardTab,l=rankBoard(S,key),me=l.find(e=>e.me);
     const row=e=>{const medal=['🥇','🥈','🥉'][e.rank-1]||('#'+e.rank);
       const a=key==='power'?'⚔'+fmt(e.power):'☠'+fmt(e.kills),b=key==='power'?'☠'+fmt(e.kills):'⚔'+fmt(e.power);
-      return '<div class="res'+(e.me?' me':'')+'" onclick="'+(e.me?'goHome()':'jumpTo(\''+e.id+'\')')+'"><span class="rank">'+medal+'</span><span class="fdot" style="background:'+e.color+'"></span>'
-        +'<div><b>'+e.name+'</b><br><span style="color:var(--dim);font-size:12px">'+e.fac+(e.me?'Lv'+e.level:' • Lv'+e.level)+'</span></div>'
+      const av=avatarById(e.avatarId||DEFAULT_AVATAR_ID);const pic=av.image?'<img class="rank-avatar" src="'+av.image+'" alt="آواتار">':'<span class="rank-avatar">'+av.emoji+'</span>';const former=(S.seasonHallOfFame||[]).some(se=>se.champions?.some(ch=>ch.id===e.id&&ch.rank===1));
+      return '<div class="res'+(e.me?' me':'')+'" onclick="'+(e.me?'goHome()':'jumpTo(\''+e.id+'\')')+'"><span class="rank">'+medal+'</span>'+pic+'<span class="fdot" style="background:'+e.color+'"></span>'
+        +'<div><b>'+e.name+(former?' 🏆':'')+'</b><br><span style="color:var(--dim);font-size:12px">'+e.fac+(e.me?'Lv'+e.level:' • Lv'+e.level)+'</span></div>'
         +'<div class="meta"><b style="color:var(--gold)">'+a+'</b><br><span style="font-size:11.5px">'+b+'</span></div></div>';};
     B.innerHTML=tabs+'<div class="card hero"><div class="bhead">🏆 <b>رتبه شما: #'+me.rank+'</b><span class="lvl">از '+l.length+' فرمانده</span></div><div class="q">'+(key==='power'?'⚔ قدرت ارتش: ':'☠ کشته‌ها: ')+'<b>'+fmt(key==='power'?me.power:me.kills)+'</b></div></div>'
       +l.slice(0,20).map(row).join('')+(me.rank>20?'<div class="q" style="justify-content:center">⋯</div>'+row(me):'');}
@@ -775,7 +779,7 @@ function renderProfile(){
   const name=self?(prof.name||p?.name||'فرمانروا'):(prof.name||p?.name||t?.name||'فرمانروای ناشناس');
   const avatarItem=avatarById(prof.avatarId||DEFAULT_AVATAR_ID),avatar=avatarItem.emoji,avatarMarkup=avatarItem.image?'<img src="'+avatarItem.image+'" alt="آواتار فرمانروا">':safeHtml(avatar),flag=prof.flag||'🏰',title=prof.title||'فرمانروای قلمرو';
   const ownedHeroes=self?(prof.unlockedHeroSkins||[]):(prof.unlockedHeroSkins||[]),ownedCastles=self?(prof.unlockedCastleSkins||[]):(prof.unlockedCastleSkins||[]);
-  const castleSkin=castleSkinById(prof.castleSkinId);
+  const castleSkin=castleSkinById(prof.castleSkinId);const frame=PROFILE_FRAMES.find(x=>x.id===prof.frameId);
   const pos=t?{x:t.x,y:t.y}:S.homePos;
   const rank=self?(rankBoard(S,'power').find(x=>x.me)?.rank||'—'):(t?([...S.tribes].sort((a,b)=>(b.power||0)-(a.power||0)).findIndex(x=>x.id===t.id)+1):'—');
   const power=self?armyPower(S.troops):(t?.power||0);
@@ -783,7 +787,7 @@ function renderProfile(){
   const conquered=self?(S.conquered||0):(t?.conquered||0);
   const achDone=self?Object.values(S.quests?.ach||{}).reduce((a,v)=>a+(v||0),0):0;
   const featured=self?ACH.filter(a=>(S.quests?.ach?.[a.id]||0)>=a.goals.length).slice(0,3):[];
-  let h='<div class="profile-hero"><div class="profile-avatar">'+avatarMarkup+'</div><div><div class="pname">'+safeHtml(name)+'</div><div class="psub">'+safeHtml(title)+' • '+safeHtml(flag)+'</div><div class="psub">'+(self?'حساب من':'پروفایل فرمانروا')+'</div></div></div>';
+  let h='<div class="profile-hero"><div class="profile-avatar '+(frame?'profile-frame-'+frame.id:'')+'">'+avatarMarkup+'</div><div><div class="pname">'+safeHtml(name)+'</div><div class="psub">'+safeHtml(title)+' • '+safeHtml(flag)+'</div><div class="psub">'+(self?'حساب من':'پروفایل فرمانروا')+'</div></div></div>';
   h+='<div class="card castle-skin-preview '+(castleSkin?safeHtml(castleSkin.className):'')+'"><b>🏰 اسکین قلعه</b><div class="castle-skin-art">'+(castleSkin?safeHtml(castleSkin.emoji):'🏰')+'</div><div class="q">'+(castleSkin?safeHtml(castleSkin.name):'دژ پایه')+'</div></div>';
   h+='<div class="statgrid" style="margin-top:10px">'
     +'<div class="stat">🏆 رتبه قدرت<b>#'+rank+'</b></div>'
@@ -802,6 +806,7 @@ function renderProfile(){
       +'<label class="q">شخصیت پروفایل — فقط ۴ شخصیت پایه</label><div class="cosmetic-grid">'+BASE_AVATARS.map(a=>'<button type="button" class="cosmetic-choice portrait-choice '+(a.id===(prof.avatarId||DEFAULT_AVATAR_ID)?'selected':'')+'" onclick="chooseAvatar(\''+a.id+'\')"><img src="'+a.image+'" alt="'+a.name+'"><small>'+a.name+'</small></button>').join('')+'</div>'
       +'<label class="q">اسکین‌های شخصیتِ جایزه‌ای</label><div class="cosmetic-grid">'+HERO_SKINS.filter(a=>ownedHeroes.includes(a.id)).map(a=>'<button type="button" class="cosmetic-choice '+(a.id===prof.avatarId?'selected':'')+'" onclick="chooseAvatar(\''+a.id+'\')"><span>'+a.emoji+'</span><small>'+a.name+'</small></button>').join('')+(ownedHeroes.length?'':'<div class="q">هنوز اسکین ویژه‌ای دریافت نکرده‌ای. اسکین قهرمان هر فصل به نفر اول تعلق می‌گیرد.</div>')+'</div>'
       +'<label class="q">اسکین قلعه‌های جایزه‌ای</label><div class="cosmetic-grid">'+CASTLE_SKINS.filter(a=>ownedCastles.includes(a.id)).map(a=>'<button type="button" class="cosmetic-choice '+(a.id===prof.castleSkinId?'selected':'')+'" onclick="chooseCastleSkin(\''+a.id+'\')"><span>'+a.emoji+'</span><small>'+a.name+'</small></button>').join('')+(ownedCastles.length?'':'<div class="q">اسکین قلعه ویژه پس از قهرمانی فصل آزاد می‌شود.</div>')+'</div>'
+      +'<label class="q">قاب پروفایل (خرید با سکه)</label><div class="cosmetic-grid">'+PROFILE_FRAMES.map(f=>'<button type="button" class="cosmetic-choice '+(f.id===prof.frameId?'selected':'')+'" onclick="buyProfileFrame(\''+f.id+'\')"><span>'+f.emoji+'</span><small>'+f.name+' • '+f.cost+'🪙</small></button>').join('')+'</div>'
       +'<label class="q">پرچم یا نشان</label><input class="profile-input" id="profileFlag" maxlength="12" value="'+safeHtml(flag)+'" placeholder="🏰">'
       +'<label class="q">عنوان افتخاری</label><input class="profile-input" id="profileTitle" maxlength="32" value="'+safeHtml(title)+'" placeholder="فرمانروای قلمرو">'
       +'<label class="q">معرفی کوتاه</label><textarea class="profile-input" id="profileBio" maxlength="160" rows="3" placeholder="درباره قلمرو و سبک بازی خودت">'+safeHtml(prof.bio||'')+'</textarea>'
@@ -816,6 +821,7 @@ function renderProfile(){
   B.innerHTML=h;
 }
 window.chooseAvatar=id=>{const p=S.profile||{};if(!BASE_AVATARS.some(a=>a.id===id)&&!(p.unlockedHeroSkins||[]).includes(id))return toast('این اسکین هنوز آزاد نشده است');p.avatarId=id;S.profile=p;save(S);renderSheet();updateDrawerUser();};
+window.buyProfileFrame=id=>{const f=PROFILE_FRAMES.find(x=>x.id===id);if(!f)return;const p=S.profile||(S.profile={});p.unlockedFrames=Array.isArray(p.unlockedFrames)?p.unlockedFrames:[];if(!p.unlockedFrames.includes(id)){if(S.resources.gold<f.cost)return toast('سکه کافی نیست');S.resources.gold-=f.cost;p.unlockedFrames.push(id);}p.frameId=id;save(S);updTop();renderSheet();toast('قاب پروفایل فعال شد');};
 window.chooseCastleSkin=id=>{const p=S.profile||{};if(!(p.unlockedCastleSkins||[]).includes(id))return toast('این اسکین قلعه هنوز آزاد نشده است');p.castleSkinId=id;S.profile=p;save(S);renderSheet();};
 window.saveProfile=()=>{
   const name=$('profileName')?.value.trim()||'';

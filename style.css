@@ -183,3 +183,11 @@ textarea.sinput{resize:vertical;line-height:1.8}
 .castle-skin-preview{display:flex;align-items:center;gap:12px;margin-top:10px}.castle-skin-art{font-size:35px;padding:8px 13px;border-radius:12px;background:rgba(255,255,255,.06)}
 .castle-skin-dragon{border-color:#a64b37}.castle-skin-phoenix{border-color:#d77b32}.castle-skin-shadow{border-color:#777}.castle-skin-ice{border-color:#79cde8}.castle-skin-gold{border-color:#d6ad43}.castle-skin-lion{border-color:#b88a43}.castle-skin-storm{border-color:#7d85d8}.castle-skin-royal{border-color:#b37bd8}
 @media(max-width:420px){.cosmetic-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* RISE v13: commander portraits and avatar-led rankings */
+.commander-portrait{width:104px!important;min-width:104px;height:132px!important;overflow:hidden;border:2px solid var(--c);border-radius:12px;background:#17131c;box-shadow:0 0 18px color-mix(in srgb,var(--c) 35%,transparent)}
+.commander-portrait img{width:100%;height:100%;object-fit:cover;display:block}
+.cmdcard{align-items:stretch}
+.rank-avatar{width:38px;height:38px;min-width:38px;border-radius:50%;object-fit:cover;border:2px solid #c9a45b;background:#211b25;display:inline-flex;align-items:center;justify-content:center;font-size:22px;margin-inline:4px}
+.profile-avatar{border:3px solid #b58a43;box-shadow:0 0 0 3px #4a3422,0 0 22px #d9a44155}
+.profile-frame-frame-bronze{border-color:#a66a3f}.profile-frame-frame-silver{border-color:#c7d0dc}.profile-frame-frame-gold{border-color:#e6b83e}.profile-frame-frame-royal{border-color:#a56bd6;box-shadow:0 0 0 4px #583276,0 0 28px #b36cff88}

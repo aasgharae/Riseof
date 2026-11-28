@@ -17,7 +17,7 @@ export function buildTribe(id,name,x,y,level,rng,buff=1){
   const t={id,name,faction:null,factionName:'',color:'#b08a5a',x,y,level,wall:Math.floor(level/4),garrison,
     power:Math.floor(armyPower(garrison)),kills:0,
     loot:{food:Math.floor(3000*LV*(0.8+rng()*0.5)),wood:Math.floor(2500*LV*(0.8+rng()*0.5)),
-      stone:Math.floor(2000*LV*(0.8+rng()*0.5)),iron:Math.floor(1200*LV*(0.8+rng()*0.5)),gold:Math.floor(35*LV*(0.8+rng()*0.6))}};
+      stone:Math.floor(2000*LV*(0.8+rng()*0.5)),iron:Math.floor(1200*LV*(0.8+rng()*0.5))}};
   t.kills=npcKillsInit(garrison,rng);
   t.spies=Math.floor(level*6*(0.6+rng()*0.8));
   if(buff!==1)scaleTribe(t,buff);
@@ -102,7 +102,7 @@ export function resolveRaid(S,raid,rng){
     // ظرفیت برای هر منبع جداگانه محاسبه می‌شود و حملِ ارتش هم سقف نهایی است.
     const hideoutLv=S.buildings.find(b=>b.type==='hideout')?.level||0;
     const protectedEach=hideoutCap(hideoutLv),surv=armyCount(raid.army)-armyCount(r.attLosses),raw={};
-    for(const k in S.resources)raw[k]=Math.max(0,Math.floor(S.resources[k]-protectedEach));
+    for(const k in S.resources)if(k!=='gold')raw[k]=Math.max(0,Math.floor(S.resources[k]-protectedEach));
     const cl=carryLimit(raw,surv);out.carry=cl;out.protectedEach=protectedEach;
     for(const k in cl.loot){S.resources[k]-=cl.loot[k];out.loot[k]=cl.loot[k];}
     if(t){t.kills=(t.kills||0)+armyCount(out.myLosses);scaleTribe(t,Math.max(0.5,1-r.aLoss*0.5));}

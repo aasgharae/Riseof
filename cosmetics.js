@@ -33,3 +33,5 @@ export function seasonCosmetics(seasonId){
   const c=(Math.max(1,Number(seasonId)||1)-1)%CASTLE_SKINS.length;
   return {hero:HERO_SKINS[i],castle:CASTLE_SKINS[c]};
 }
+
+export const PROFILE_FRAMES=[{id:'frame-bronze',name:'قاب برنزی',cost:500,emoji:'🥉'},{id:'frame-silver',name:'قاب نقره‌ای',cost:1200,emoji:'🥈'},{id:'frame-gold',name:'قاب زرین',cost:2500,emoji:'🥇'},{id:'frame-royal',name:'قاب سلطنتی',cost:5000,emoji:'👑'}];
