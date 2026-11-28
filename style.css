@@ -191,3 +191,33 @@ textarea.sinput{resize:vertical;line-height:1.8}
 .rank-avatar{width:38px;height:38px;min-width:38px;border-radius:50%;object-fit:cover;border:2px solid #c9a45b;background:#211b25;display:inline-flex;align-items:center;justify-content:center;font-size:22px;margin-inline:4px}
 .profile-avatar{border:3px solid #b58a43;box-shadow:0 0 0 3px #4a3422,0 0 22px #d9a44155}
 .profile-frame-frame-bronze{border-color:#a66a3f}.profile-frame-frame-silver{border-color:#c7d0dc}.profile-frame-frame-gold{border-color:#e6b83e}.profile-frame-frame-royal{border-color:#a56bd6;box-shadow:0 0 0 4px #583276,0 0 28px #b36cff88}
+
+/* RISE v14 — unified bespoke icon language and cleaner navigation */
+.logo img{width:88px;height:88px;filter:drop-shadow(0 8px 18px rgba(224,161,0,.25))}
+.tline span{display:inline-flex;align-items:center;gap:5px}
+.tline span img{width:17px;height:17px;display:block;flex:0 0 17px}
+#mapBtns button{display:grid;place-items:center}
+#mapBtns button img{width:27px;height:27px;display:block}
+#menuToggle{display:grid;place-items:center}
+#menuToggle img{width:30px;height:30px}
+#dock button img{width:27px;height:27px;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,.35));margin-bottom:2px}
+#dock button:focus-visible,#drawerPanel>button:focus-visible,#mapBtns button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+#drawerPanel>button{display:flex;align-items:center;gap:12px;min-height:48px}
+#drawerPanel>button img{width:25px;height:25px;flex:0 0 25px}
+#drawerPanel>button span{flex:1}
+.drawer-head b{letter-spacing:.3px}
+#sheetCard{border-top-width:3px;box-shadow:0 -12px 42px rgba(0,0,0,.32)}
+#sheetHead{padding-bottom:8px;border-bottom:1px solid rgba(255,201,77,.12)}
+#sheetTitle{font-size:17px;font-weight:900}
+#sheetBody{padding-top:5px}
+#dock button{transition:background .16s ease,transform .16s ease}
+#dock button:active{transform:translateY(-1px)}
+#dock small{font-size:10px;font-weight:700;letter-spacing:-.15px}
+.cmdcard{gap:12px;padding:12px}
+.commander-portrait{flex:0 0 104px!important;height:132px!important;border-radius:13px!important}
+@media(max-width:520px){
+  .tline span img{width:15px;height:15px;flex-basis:15px}
+  #dock button img{width:25px;height:25px}
+  #dock small{font-size:9px}
+  #drawerPanel{width:min(350px,88vw)}
+}

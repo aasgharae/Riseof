@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>RISE v13 — فرماندهان ارشد و اقتصاد طلایی</title><link rel="stylesheet" href="style.css"></head><body>
-<div id="splash"><div class="logo">🏰</div><h1>ظهور قبیله‌ها</h1>
+<title>RISE v14 — Final Pre-Server Edition</title><link rel="stylesheet" href="style.css"></head><body>
+<div id="splash"><div class="logo"><img src="assets/ui/castle.svg" alt="RISE"></div><h1>ظهور قبیله‌ها</h1>
 <button id="btnContinue">▶ ادامه بازی</button><button id="btnNew" class="ghost">↺ جهان جدید</button>
 <button id="btnHelp" class="ghost">؟ راهنما</button>
 <div id="helpBox" hidden>
@@ -13,33 +13,33 @@
 <div id="game" hidden>
 <div id="mapWrap"><canvas id="cv"></canvas>
 <div id="topbar">
-  <div class="tline"><span id="res-food">🌾 0</span><span id="res-wood">🪵 0</span><span id="res-stone">🪨 0</span><span id="res-iron">⛓️ 0</span><span id="res-gold">🪙 0</span></div>
-  <div class="tline"><span id="res-energy">⚡ 100/100</span><span id="dayLabel"></span></div>
+  <div class="tline"><span id="res-food"><img src="assets/ui/food.svg" alt="">0</span><span id="res-wood"><img src="assets/ui/wood.svg" alt="">0</span><span id="res-stone"><img src="assets/ui/stone.svg" alt="">0</span><span id="res-iron"><img src="assets/ui/iron.svg" alt="">0</span><span id="res-gold"><img src="assets/ui/gold.svg" alt="">0</span></div>
+  <div class="tline"><span id="res-energy"><img src="assets/ui/energy.svg" alt="">100/100</span><span id="dayLabel"></span></div>
 </div>
 <div id="mapBtns">
-  <button id="btnView" title="قلعه من / جهان">🏰</button>
-  <button id="btnSearch" title="جستجو">🔍</button>
-  <button id="btnHome2" title="برو به قلعه من">📍</button>
+  <button id="btnView" title="قلعه من / جهان"><img src="assets/ui/castle.svg" alt=""></button>
+  <button id="btnSearch" title="جستجو"><img src="assets/ui/search.svg" alt=""></button>
+  <button id="btnHome2" title="برو به قلعه من"><img src="assets/ui/pin.svg" alt=""></button>
 </div>
 <div id="alertBar" hidden></div><div id="modeBar" hidden></div>
 <div id="zoomCtl"><button id="zin" title="زوم +">＋</button><button id="zout" title="زوم -">－</button></div>
 </div>
 <div id="dock" aria-label="میانبرهای نقشه"></div>
-<button id="menuToggle" aria-label="باز کردن منوی اصلی" title="منوی اصلی">☰</button>
+<button id="menuToggle" aria-label="باز کردن منوی اصلی" title="منوی اصلی"><img src="assets/ui/menu.svg" alt=""></button>
 <div id="sideDrawer" hidden>
   <div id="drawerScrim"></div>
   <aside id="drawerPanel" dir="rtl">
-    <div class="drawer-head"><b>🏰 منوی RISE</b><button id="drawerClose" aria-label="بستن">✕</button></div>
+    <div class="drawer-head"><b>منوی RISE</b><button id="drawerClose" aria-label="بستن">✕</button></div>
     <div class="drawer-user" onclick="openOwnProfile()"><span id="drawerAvatar"><img src="assets/avatars/shirazi-queen.jpg" alt="آواتار"></span><div><b id="drawerName">فرمانروا</b><small>مشاهده پروفایل من</small></div><span>‹</span></div>
-    <button data-menu="profile">👤 پروفایل من</button>
-    <button data-menu="quests">🏅 دستاوردها و ماموریت‌ها</button>
-    <button data-menu="board">🏆 جدول رده‌بندی</button>
-    <button data-menu="empire">👑 امپراتوری</button>
-    <button data-menu="clan">🏳️ قبیله و اتحادها</button>
-    <button data-menu="msgs">✉️ پیام‌ها و دوستان</button>
-    <button data-menu="reports">📜 تاریخچه نبردها</button>
-    <button data-menu="shop">🛒 فروشگاه</button>
-    <button data-menu="help">📖 راهنمای بازی</button>
+    <button data-menu="profile"><img src="assets/ui/profile.svg" alt=""><span>پروفایل من</span></button>
+    <button data-menu="quests"><img src="assets/ui/quests.svg" alt=""><span>دستاوردها و مأموریت‌ها</span></button>
+    <button data-menu="board"><img src="assets/ui/trophy.svg" alt=""><span>جدول رده‌بندی</span></button>
+    <button data-menu="empire"><img src="assets/ui/empire.svg" alt=""><span>امپراتوری</span></button>
+    <button data-menu="clan"><img src="assets/ui/clan.svg" alt=""><span>قبیله و اتحادها</span></button>
+    <button data-menu="msgs"><img src="assets/ui/messages.svg" alt=""><span>پیام‌ها</span></button>
+    <button data-menu="reports"><img src="assets/ui/reports.svg" alt=""><span>تاریخچه نبردها</span></button>
+    <button data-menu="shop"><img src="assets/ui/shop.svg" alt=""><span>فروشگاه</span></button>
+    <button data-menu="help"><img src="assets/ui/book.svg" alt=""><span>راهنمای بازی</span></button>
   </aside>
 </div>
 <div id="sheet" hidden><div id="sheetCard"><div id="sheetHead"><b id="sheetTitle"></b><button id="sheetClose">✕</button></div><div id="sheetBody"></div></div></div>

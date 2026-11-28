@@ -62,7 +62,7 @@ const intelOf=t=>getIntel(S,t.id,Date.now(),homeFx(S,'spy'));
 const powTxt=t=>intelOf(t)?'⚔'+fmt(t.power):'⚔≈'+fmt(estPower(t))+' ؟';
 function updBadges(){
   const cb=document.querySelector('#dock [data-act=train] .badge');if(cb){const t=ensureCmd(S).tokens,ok=t>0&&S.cmd.unlocked.length<MAX_UNLOCK;cb.hidden=!ok;cb.textContent=t;}
-  const en=$('res-energy');if(en&&S.energy)en.textContent='⚡ '+S.energy.v+'/'+ENERGY.max;
+  const en=$('res-energy');if(en&&S.energy)en.innerHTML='<img src="assets/ui/energy.svg" alt="">'+S.energy.v+'/'+ENERGY.max;
   const qb=document.querySelector('#dock [data-act=quests] .badge'),ab=document.querySelector('#dock [data-act=attack] .badge'),al=$('alertBar');
   const n=countClaimable(S);if(qb){qb.hidden=!n;qb.textContent=n;}
   const inc=S.incoming||[];if(ab){ab.hidden=!inc.length;ab.textContent=inc.length;}
@@ -73,11 +73,11 @@ function updBadges(){
   if(al){if(inc.length){const r=inc.reduce((a,b)=>a.left<b.left?a:b);al.hidden=false;
     al.textContent='⚠️ حمله '+r.name+' — '+formatDuration(r.left)+' تا رسیدن • ⚔'+fmt(r.power)+' در برابر دفاع شما ⚔'+fmt(armyPower(S.troops));}else al.hidden=true;}}
 function updTop(){updBadges();const cap=storageCap(S);for(const k in S.resources)S.resources[k]=Math.min(S.resources[k],cap);
-if($('res-food')){$('res-food').textContent='🌾 '+fmt(S.resources.food);$('res-wood').textContent='🪵 '+fmt(S.resources.wood);$('res-stone').textContent='🪨 '+fmt(S.resources.stone);$('res-iron').textContent='⛓️ '+fmt(S.resources.iron);$('res-gold').textContent='🪙 '+fmt(S.resources.gold);
+if($('res-food')){$('res-food').innerHTML='<img src="assets/ui/food.svg" alt="">'+fmt(S.resources.food);$('res-wood').innerHTML='<img src="assets/ui/wood.svg" alt="">'+fmt(S.resources.wood);$('res-stone').innerHTML='<img src="assets/ui/stone.svg" alt="">'+fmt(S.resources.stone);$('res-iron').innerHTML='<img src="assets/ui/iron.svg" alt="">'+fmt(S.resources.iron);$('res-gold').innerHTML='<img src="assets/ui/gold.svg" alt="">'+fmt(S.resources.gold);
 const keepLv=S.buildings.find(b=>b.type==='keep')?.level||1;
 $('dayLabel').textContent='🏰Lv'+keepLv+' • ⚔'+fmt(armyPower(S.troops))+' • 👥'+fmt(armyCount(S.troops));}}
 
-function setViewUI(v){R.setView(v);const b=$('btnView');if(b)b.textContent=v==='world'?'🏰':'🌍';if(typeof setDock==='function')setDock();}
+function setViewUI(v){R.setView(v);const b=$('btnView');if(b)b.innerHTML='<img src="assets/ui/'+(v==='world'?'castle':'world')+'.svg" alt="">';if(typeof setDock==='function')setDock();}
 window.toggleView=()=>{setViewUI(R.view==='world'?'castle':'world');};
 function canPay(c){for(const k in c)if((S.resources[k]||0)<c[k])return false;return true;}
 function pay(c){for(const k in c)S.resources[k]-=c[k];}
@@ -351,7 +351,7 @@ window.inviteClan=(id)=>{const t=getTarget(id);const c=myClan(S);
 
 // ---------- قبیله ----------
 function renderClan(){const B=$('sheetBody');const c=myClan(S);
-  let h='<div class="seg">'+[['clanhome','🏳 قبیله من'],['shop','🛒 فروشگاه']].map(([k,l])=>'<button class="'+(cur===k?'on':'')+'" onclick="openSheet(\''+k+'\')">'+l+'</button>').join('')+'</div>';
+  let h='';
   if(!c){
     h+='<div class="card hero"><div class="bhead">🏳 <b>ساخت قبیله</b><span class="lvl">رایگان</span></div>'
       +'<div class="q">• هر قبیله حداکثر ۱۵ قلعه دارد<br>• اعضای قبیله متحدند و حمله به هم ممنوع<br>• چت گروهی مخصوص قبیله داری</div>'
@@ -363,7 +363,7 @@ function renderClan(){const B=$('sheetBody');const c=myClan(S);
   h+='<div class="card hero"><div class="bhead">🏳 <b>'+c.name+'</b><span class="lvl">'+c.members.length+'/'+CLAN_MAX_CASTLES+' قلعه</span></div>'
     +'<div class="q">👑 بنیان‌گذار: '+(playerById(S,c.owner)?.name||'—')+'</div>'
     +(S.shieldUntilTxt?'':'')
-    +'<div class="q">📜 دفترچه قبیله و چت گروهی در منوی ✉️ پیام‌ها</div></div>';
+    +'<div class="q">گفتگوی اختصاصی اعضای قبیله</div><button class="btn wide" onclick="openSheet(\'clanchat\')">ورود به گفتگوی قبیله</button></div>';
   const pending=(S.clanRequests||[]).filter(r=>r.clanId===c.id&&r.status==='pending');
   if(c.owner==='me'){h+='<div class="card"><b>📨 درخواست‌های عضویت ('+pending.length+')</b>';
     h+=pending.length?pending.map(r=>{const p=playerById(S,r.playerId);return '<div class="res"><div><b>'+(p?.name||r.playerId)+'</b><br><span class="q">درخواست عضویت</span></div><div class="meta"><button class="btn sm" onclick="approveClanJoin(\''+r.id+'\')">تأیید</button> <button class="btn sm ghost" onclick="rejectClanJoin(\''+r.id+'\')">رد</button></div></div>';}).join(''):'<div class="q">درخواستی در انتظار نیست</div>';
@@ -383,7 +383,7 @@ window.doKickClan=id=>{kickClan(S,id);renderSheet();};
 
 // ---------- فروشگاه ----------
 function renderShop(){const B=$('sheetBody');
-  let h='<div class="seg">'+[['clan','🏳 قبیله من'],['shop','🛒 فروشگاه']].map(([k,l])=>'<button class="'+(cur==='shop'?'on':'')+'" onclick="openSheet(\''+k+'\')">'+l+'</button>').join('')+'</div>';
+  let h='';
   const sh=shieldActive(S);
   h+='<div class="card hero"><div class="bhead">🛡 <b>محافظت آغازین</b><span class="lvl">'+(sh?('فعال — '+Math.ceil(shieldLeft(S)/3600000)+'س دیگر'):'غیرفعال')+'</span></div>'
     +'<div class="bar"><i style="width:'+Math.min(100,shieldLeft(S)/(24*3600000)*100)+'%"></i></div>'
@@ -396,7 +396,7 @@ window.doBuy=k=>{const r=buyItem(S,k);if(!r.ok)return toast(r.msg);
   updTop();renderSheet();toast('🛒 خرید با موفقیت انجام شد');};
 
 // ---------- تب‌های پیام‌رسان ----------
-const MSG_TABS=[['inbox','💬 چت‌ها'],['clan','🏳 قبیله'],['reports','📜 گزارش‌ها'],['sys','📢 سیستم']];
+const MSG_TABS=[['inbox','چت‌ها'],['reports','گزارش‌ها'],['sys','سیستم']];
 const msgTabsHtml=()=>'<div class="seg">'+MSG_TABS.map(([k,l])=>'<button class="'+((msgsTab===k||(k==='reports'&&msgsTab==='report'))?'on':'')+'" onclick="setMsgsTab(\''+k+'\')">'+l+'</button>').join('')+'</div>';
 // ---------- گزارش‌های جنگ (تب پیام‌رسان) ----------
 let repId=null,repFilter='battle';
@@ -448,15 +448,13 @@ function renderReportDetail(e){const d=e.d||{};
   return h;}
 // ---------- چت گروهی قبیله ----------
 function renderClanChat(){const B=$('sheetBody');const c=myClan(S);
-  let h=msgTabsHtml();
-  if(!c){h+='<div class="card">در قبیله‌ای نیستی — از منوی 🏳️ بساز یا بپیوند.</div>';B.innerHTML=h;return;}
+  if(!c){B.innerHTML='<div class="card">برای استفاده از گفتگوی قبیله ابتدا عضو یک قبیله شو.</div>';return;}
   const L=clanChatOf(S,c.id);
-  h+='<div class="chatwrap"><div class="chatlog">'
+  let h='<button class="btn sm ghost" onclick="openSheet(\'clan\')">بازگشت به قبیله</button><div class="chatwrap"><div class="chatlog">'
     +(L.length?L.map(m=>'<div class="msg'+(m.me?' me':'')+'">'+(m.me?'':'<div class="who">'+m.from+'</div>')+m.text+'<div class="who time">'+new Date(m.t).toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'})+'</div></div>').join('')
       :'<div class="card">چت گروهی قبیله «'+c.name+'» — اولین پیام را بفرست!</div>')
     +'</div><div class="chatbar"><input id="clanChatIn" maxlength="200" placeholder="پیام به قبیله…"><button class="btn" onclick="sendClanChat()">ارسال</button></div></div>';
-  B.innerHTML=h;S.unreadClan=0;
-  const cl=B.querySelector('.chatlog');if(cl)cl.scrollTop=cl.scrollHeight;
+  B.innerHTML=h;S.unreadClan=0;const cl=B.querySelector('.chatlog');if(cl)cl.scrollTop=cl.scrollHeight;
   const ci=$('clanChatIn');if(ci){ci.onkeydown=e=>{if(e.key==='Enter')window.sendClanChat();};ci.focus();}}
 window.sendClanChat=()=>{const c=myClan(S);if(!c)return;
   const ci=$('clanChatIn');const txt=(ci&&ci.value||'').trim();if(!txt)return;
@@ -485,9 +483,6 @@ function tribeRow(t,onclick){return '<div class="res" onclick="'+onclick+'"><spa
   +'<div class="meta">Lv'+t.level+' • '+powTxt(t)+'<br>📏'+Math.round(dist(t))+' • ⏱' +formatDuration(eta(t))+'</div></div>';}
 
 const costChips=c=>Object.entries(c).map(([k,v])=>'<span class="'+((S.resources[k]||0)>=v?'ok':'no')+'">'+ICO[k]+' '+fmt(v)+'</span>').join(' ');
-function sheetSeg(){const wc=woundedCount(S),cm=ensureCmd(S),tk=cm.tokens>0&&cm.unlocked.length<MAX_UNLOCK;
-  const b=(k,l)=>'<button class="'+(cur===k?'on':'')+'" onclick="openSheet(\''+k+'\')">'+l+'</button>';
-  return '<div class="seg">'+b('train','⚔️ سربازخانه')+b('hospital','🏥 بیمارستان'+(wc?' • 🩹'+fmt(wc):''))+b('cmd','🎖 فرمانده'+(tk?' • 🎫'+cm.tokens:''))+'</div>';}
 function maxAfford(tid){const T=TROOPS[tid];let m=Infinity;for(const k in T.cost)m=Math.min(m,Math.floor((S.resources[k]||0)/T.cost[k]));return Math.max(0,m);}
 function troopCard(tid,lvl){
   const T=TROOPS[tid],cls=TROOP_CLASS[tid],locked=T.unlock>lvl;
@@ -515,15 +510,17 @@ window.setQTab=k=>{qTab=k;renderSheet();};
 window.claimQ=(list,i)=>{const rw=claimQuest(S,list,i);if(!rw)return;save(S);updTop();renderSheet();toast('🎁 جایزه دریافت شد: +'+fmt(rw.gold)+'🪙');};
 window.claimA=id=>{const rw=claimAch(S,id);if(!rw)return;save(S);updTop();renderSheet();toast('🏅 دستاورد! +'+fmt(rw.gold)+'🪙');};
 window.openSheet=k=>openSheet(k);
-const ER_SEG=()=>'<div class="seg">'+[['empire','👑 امپراتوری'],['board','🏆 لیدربرد'],['boss','🗿 غول و فصل'],['msgs','✉️ پیام‌ها']].map(([k,l])=>'<button class="'+(cur===k?'on':'')+'" onclick="openSheet(\''+k+'\')">'+l+'</button>').join('')+'</div>';
+window.upgradeHospitalFromHere=()=>{const b=S.buildings.find(x=>x.type==='hospital');if(!b)return toast('ساختمان بیمارستان پیدا نشد');upg(b.id);};
+
 function renderSheet(){const els=[$('sheetBody'),$('sheetCard')],st=els.map(e=>e?e.scrollTop:0);
-  _renderSheet();if(!$('sheet').hidden&&['empire','msgs','board','boss'].includes(cur))$('sheetBody').insertAdjacentHTML('afterbegin',ER_SEG());
+  _renderSheet();
   els.forEach((e,i)=>{if(e)e.scrollTop=st[i];});}
 function _renderSheet(){const B=$('sheetBody');if(!B||$('sheet').hidden)return;
 if(cur==='mapmenu'){renderMapMenu();return;}
 if(cur==='profile'){renderProfile();return;}
 if(cur==='help'){B.innerHTML='<div class="card"><b>📖 راهنمای RISE</b><div class="q">در نقشه جهان قلعه‌ها و مکان‌ها را انتخاب کن؛ در نقشه قلعه ساختمان‌ها را مدیریت کن. از منوی سه‌خطی به پروفایل، دستاوردها، رتبه‌بندی، قبیله، پیام‌ها و گزارش‌ها دسترسی داری.</div></div>';return;}
 if(cur==='clan'){renderClan();return;}
+if(cur==='clanchat'){renderClanChat();return;}
 if(cur==='shop'){renderShop();return;}
 if(cur==='build'){
   B.innerHTML=S.buildings.map(b=>{const u=S.upgrades.find(x=>x.id===b.id);
@@ -538,7 +535,7 @@ if(cur==='build'){
 if(cur==='train'){
   const bars=Object.keys(S.training);if(!bars.includes(trainBar))trainBar=bars[0];
   const lvl=S.buildings.find(b=>b.id===trainBar)?.level||1;
-  let h=sheetSeg();
+  let h=''
   h+='<div class="q" style="justify-content:center;text-align:center">🔄 چرخه تقابل: 🗡️ پیاده ▶ 🔱 نیزه‌دار ▶ 🐎 سواره ▶ 🏹 کماندار ▶ 🗡️ پیاده • 💣 محاصره دیوار را می‌شکند</div>';
   h+='<div class="seg">'+bars.map((id,i)=>{const L=S.buildings.find(b=>b.id===id)?.level||1,q=S.training[id].length;
     return '<button class="'+(id===trainBar?'on':'')+'" onclick="setTrainBar(\''+id+'\')">🏰 سربازخانه '+(i+1)+' • Lv'+L+(q?' • ⏳'+q:'')+'</button>';}).join('')+'</div>';
@@ -553,7 +550,7 @@ if(cur==='train'){
   B.innerHTML=h;}
 if(cur==='hospital'){
   const lvl=hospitalLevel(S),cap=hospitalCap(lvl),w=woundedCount(S),hc=healingCount(S);
-  let h=sheetSeg();
+  let h=''
   h+='<div class="card hero"><div class="bhead">🏥 <b>بیمارستان</b><span class="lvl">Lv'+lvl+'</span></div>'
     +'<div class="q">🩹 ظرفیت: '+fmt(w+hc)+' / '+fmt(cap)+' <button class="btn sm" onclick="openSheet(\'build\')">⬆ ارتقای بیمارستان</button></div>'
     +'<div class="bar"><i style="width:'+Math.min(100,Math.floor((w+hc)/Math.max(1,cap)*100))+'%"></i></div>'
@@ -662,7 +659,7 @@ if(cur==='detail'||cur==='campSetup'){
   B.innerHTML=h;updateDetailTotals();return;}
 if(cur==='cmd'){
   const c=ensureCmd(S),lv=S.buildings.find(b=>b.type==='keep')?.level||1,busy=busyCmds(S),nextTok=TOKEN_LEVELS.find(L=>!c.granted.includes(L));
-  let h=sheetSeg()+'<div class="card hero"><div class="bhead">🎖 <b>فرماندهان ارشد</b><span class="lvl">'+c.unlocked.length+'/'+MAX_UNLOCK+'</span></div>'
+  let h='<div class="card hero"><div class="bhead">🎖 <b>فرماندهان ارشد</b><span class="lvl">'+c.unlocked.length+'/'+MAX_UNLOCK+'</span></div>'
     +'<div class="q">🎫 توکن آزاد: <b>'+c.tokens+'</b> • 🏅 نشان ارتقا: <b>'+c.emblems+'</b></div>'
     +'<div class="q">'+(nextTok?'🎫 توکن بعدی: وقتی قلعه به <b>Lv'+nextTok+'</b> برسد (الان Lv'+lv+')':'همه‌ی ۴ توکن گرفته شد')+'</div>'
     +'<div class="q">هر فرمانده نقطه‌ضعف مشخص دارد؛ دشمن می‌تواند با انتخاب ترکیب مناسب از آن استفاده کند.</div>'
@@ -732,7 +729,6 @@ if(cur==='msgs'){
   const tabs=msgTabsHtml();
   if(msgsTab==='reports'||msgsTab==='report'){S.msgRead.rep=Date.now();renderReports();return;}
   if(msgsTab==='thread'&&msgsPeer){renderThread(msgsPeer);return;}
-  if(msgsTab==='clan'){renderClanChat();return;}
   if(msgsTab==='sys')S.msgRead.sys=Date.now();
   let h=tabs;
   if(msgsTab==='sys'){
@@ -859,7 +855,7 @@ function renderThread(pid){
   const B=$('sheetBody'),p=playerById(S,pid);
   if(!p){closeThread();return;}
   const L=threadOf(S,pid);
-  let h='<div class="seg">'+[['inbox','💬 چت‌ها'],['clan','🏳 قبیله'],['sys','📢 سیستم']].map(([k,l])=>'<button class="'+(k==='thread'?'on':'')+'" onclick="setMsgsTab(\''+k+'\')">'+l+'</button>').join('')+'</div>';
+  let h='<div class="seg">'+[['inbox','چت‌ها'],['sys','سیستم']].map(([k,l])=>'<button class="'+(k==='thread'?'on':'')+'" onclick="setMsgsTab(\''+k+'\')">'+l+'</button>').join('')+'</div>';
   h+='<div class="card" style="padding:8px 12px"><div class="trow"><span class="fdot" style="background:'+p.color+'"></span><b>'+p.name+'</b>'
     +(p.blocked?' <span class="chip">⛔ بن</span>':'')+(p.chatBanned?' <span class="chip">🔇 چتش مسدود</span>':'')
     +'<span class="tpow">'+(p.online?'🟢 آنلاین':' offline')+'</span></div></div>';
@@ -875,7 +871,7 @@ function renderThread(pid){
   const ci=$('chatIn');if(ci){ci.onkeydown=e=>{if(e.key==='Enter')window.sendChat();};ci.focus();}}
 function renderAdmin(){
   const B=$('sheetBody');msgsTab='manage';
-  let h='<div class="seg">'+[['inbox','💬 چت‌ها'],['clan','🏳 قبیله'],['sys','📢 سیستم']].map(([k,l])=>'<button class="'+(k==='manage'?'on':'')+'" onclick="setMsgsTab(\''+k+'\')">'+l+'</button>').join('')+'</div>';
+  let h='<div class="seg">'+[['inbox','چت‌ها'],['sys','سیستم']].map(([k,l])=>'<button class="'+(k==='manage'?'on':'')+'" onclick="setMsgsTab(\''+k+'\')">'+l+'</button>').join('')+'</div>';
   h+='<div class="card hero"><div class="bhead">📢 <b>پیام همگانی</b></div>'
     +'<textarea id="admSys" class="sinput" rows="2" placeholder="متن اطلاعیه به همه‌ی بازیکنان…"></textarea>'
     +'<div class="row"><button class="btn" onclick="admBroadcast()">📢 ارسال به همه</button></div></div>';
@@ -934,18 +930,18 @@ function updateDetailTotals(){const el=$('selTotals');if(!el)return;
   el.innerHTML=head('⚔'+fmt(r.atk)+' در برابر '+fmt(r.def)+' '+(cnt>cap?'⚠️ بیش از ظرفیت':ok?'✅ شانس پیروزی':'⚠️ کافی نیست'),ok?'var(--green)':'var(--red)')
    +'<div class="q">🎯 ضریب تقابل: شما ×'+r.atkMul.toFixed(2)+' • دشمن ×'+r.defMul.toFixed(2)+' • 📉 تلفات تخمینی: '+Math.round(r.aLoss*100)+'٪ • '+en+'</div>';}
 function openSheet(k){cur=k;if(k==='mapmenu')mapMenuTarget=mapMenuTarget;msgsPeer=msgsPeer;$('sheet').hidden=false;
-  $('sheetTitle').textContent={build:'🏗️ ساخت و ارتقا',train:'⚔️ سربازخانه',attack:'🚩 لشکرکشی',detail:'🎯 جزئیات هدف',search:'🔍 جستجو در نقشه',reports:'📜 گزارش‌ها',empire:'👑 امپراتوری',board:'🏆 لیدربرد',hospital:'🏥 بیمارستان',quests:'🎯 ماموریت‌ها و دستاوردها',cmd:'🎖 فرماندهان ارشد',boss:'🗿 غول آخر فصل',campSetup:'⛺ برپایی کمپ',msgs:'✉️ پیام‌ها',mapmenu:'🎯 انتخاب عملیات',clan:'🏳️ قبیله',shop:'🛒 فروشگاه',profile:'👤 پروفایل فرمانروا',help:'📖 راهنمای بازی'}[k]||'';
+  $('sheetTitle').textContent={build:'🏗️ ساخت و ارتقا',train:'⚔️ سربازخانه',attack:'🚩 لشکرکشی',detail:'🎯 جزئیات هدف',search:'🔍 جستجو در نقشه',reports:'📜 گزارش‌ها',empire:'👑 امپراتوری',board:'🏆 لیدربرد',hospital:'🏥 بیمارستان',quests:'🎯 ماموریت‌ها و دستاوردها',cmd:'🎖 فرماندهان ارشد',boss:'🗿 غول آخر فصل',campSetup:'⛺ برپایی کمپ',msgs:'✉️ پیام‌ها',mapmenu:'🎯 انتخاب عملیات',clan:'قبیله',clanchat:'گفتگوی قبیله',shop:'فروشگاه',profile:'👤 پروفایل فرمانروا',help:'📖 راهنمای بازی'}[k]||'';
   renderSheet();}
 function closeDrawer(){const d=$('sideDrawer');if(d)d.hidden=true;}
 function openDrawer(){const d=$('sideDrawer');if(d)d.hidden=false;}
 function setDock(){
   const world=R.view==='world';
   const items=world?[
-    ['attack','🚩','لشکرها'],['search','🔍','جستجو'],['board','🏆','رتبه‌ها'],['clan','🏳️','قبیله'],['msgs','✉️','پیام‌ها']
+    ['attack','march','لشکرها'],['search','search','جستجو'],['board','trophy','رتبه‌ها'],['clan','clan','قبیله'],['msgs','messages','پیام‌ها']
   ]:[
-    ['build','🏗️','ساخت'],['train','⚔️','سربازخانه'],['hospital','🏥','بیمارستان'],['attack','🚩','لشکر'],['cmd','🎖️','فرمانده']
+    ['build','buildings','ساخت'],['train','barracks','سربازخانه'],['hospital','hospital','بیمارستان'],['attack','march','لشکر'],['cmd','commander','فرمانده']
   ];
-  $('dock').innerHTML=items.map(([act,ic,label])=>'<button data-act="'+act+'" title="'+label+'"><em>'+ic+'</em><small>'+label+'</small>'+(['attack','train','msgs','quests'].includes(act)?'<i class="badge" hidden></i>':'')+'</button>').join('');
+  $('dock').innerHTML=items.map(([act,ic,label])=>'<button data-act="'+act+'" title="'+label+'"><img src="assets/ui/'+ic+'.svg" alt=""/><small>'+label+'</small>'+(['attack','train','msgs','quests'].includes(act)?'<i class="badge" hidden></i>':'')+'</button>').join('');
   $('dock').querySelectorAll('button').forEach(b=>b.onclick=()=>{
     const a=b.dataset.act;if(a==='attack')detailCamp=null;
     openSheet(a);
