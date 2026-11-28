@@ -1,30 +1,20 @@
-# Rise — Persian Clan Strategy Game Prototype
+# RISE v11 — ظهور قبیله‌ها
 
-Rise currently runs as a browser-based offline prototype. The v9 stabilization work preserves the existing client while preparing a gradual migration to a Node.js + PostgreSQL backend and multiple independent worlds.
+نسخه ۱۱ بر پایه سورس کامل نسخه ۱۰ ساخته شده است.
 
-## Play locally
+## تغییرات نسخه ۱۱
+- پروفایل اختصاصی فرمانروا با ۴ شخصیت ثابت (۲ دختر و ۲ پسر)؛ بدون امکان آپلود عکس
+- اسکین‌های شخصیت و قلعه به‌عنوان جایزه انحصاری نفر اول هر فصل؛ امکان انتخاب اسکین‌های دریافت‌شده در پروفایل
+- نمایش رتبه، قدرت ارتش، کشتار، پیروزی‌ها، فتوحات و مختصات قلعه در پروفایل
+- دکمه پنجم «پروفایل» در منوی پنج‌گانه قلعه‌های جهان؛ چهار عملیات قبلی حفظ شده‌اند
+- گسترش فهرست دستاوردها به ۳۲ عنوان در دسته‌های نظامی، اقتصادی، عمرانی، دفاعی، اکتشاف، اجتماعی و قهرمانی
+- منوی کشویی سمت راست با دکمه سه‌خطی ثابت در پایین راست
+- میانبرهای پایین صفحه متناسب با نقشه جهان یا نقشه قلعه تغییر می‌کنند
+- حفظ سیستم‌های نسخه ۱۰: مخفیگاه، غارت محدودشده، زمان‌بندی و پیشرفت آفلاین
 
-```bash
-python -m http.server 8000
-```
+## نکته درباره چندنفره
+این بسته، رابط پروفایل و ساختار نمایش اطلاعات را در معماری فعلی بازی پیاده‌سازی می‌کند. سورس فعلی هنوز از ذخیره محلی و بازیکنان نمایشی/آفلاین استفاده می‌کند؛ بنابراین پروفایل‌ها و رتبه‌های واقعی میان کاربران دستگاه‌های مختلف همگام نمی‌شوند. برای چندنفره واقعی، سرویس احراز هویت و دیتابیس/ API سمت سرور لازم است.
 
-Open `http://localhost:8000`.
-
-## Run tests
-
-Requires Node.js 20 or newer.
-
-```bash
-npm test
-```
-
-## Migration status
-
-- Phase 1: offline state stabilization and regression tests.
-- Phase 2: Node.js API, PostgreSQL schema, server-side authentication.
-- Phase 3: migrate economy, construction, training, marches and combat to server-authoritative services.
-- Phase 4: multiple worlds, each with its own seed, season, players and NPC simulation.
-
-See `ONLINE_ROADMAP.md` and `docs/PHASE-1-STABILIZATION.md`.
-
-**Important:** the current local authentication and localStorage save are for prototyping only. They are not secure or shared across devices.
+## اجرا و تست
+- روی GitHub Pages یا هر وب‌سرور استاتیک اجرا می‌شود.
+- `npm run check` بررسی سینتکس و تست‌های پروژه را اجرا می‌کند.

@@ -61,6 +61,10 @@ export function ensureDefaults(S){
   S.chats=S.chats&&typeof S.chats==='object'?S.chats:{};
   S.unread=S.unread&&typeof S.unread==='object'?S.unread:{};
   S.players=Array.isArray(S.players)?S.players:[];
+  S.profile=S.profile&&typeof S.profile==='object'?S.profile:{name:'فرمانروا',avatarId:'base-warrior-f',flag:'🏰',title:'فرمانروای قلمرو',bio:'',unlockedHeroSkins:[],unlockedCastleSkins:[]};
+  if(!S.profile.avatarId)S.profile.avatarId='base-warrior-f';
+  S.profile.unlockedHeroSkins=Array.isArray(S.profile.unlockedHeroSkins)?S.profile.unlockedHeroSkins:[];
+  S.profile.unlockedCastleSkins=Array.isArray(S.profile.unlockedCastleSkins)?S.profile.unlockedCastleSkins:[];
   S.seasonsList=Array.isArray(S.seasonsList)?S.seasonsList:[{id:1,name:'فصل ۱'}];
   if(S.mySeason==null)S.mySeason=1;
   S.sysMsgs=Array.isArray(S.sysMsgs)?S.sysMsgs:[];

@@ -29,14 +29,50 @@ export const ACH=[
  {id:'sites',key:'sites',ic:'💎',name:'گنج‌یاب',goals:[1,10,30],t:n=>n+' گنج/غار غارت کن'},
  {id:'healed',key:'healed',ic:'🏥',name:'طبیب',goals:[1000,10000,100000],t:n=>n+' مجروح درمان کن'},
  {id:'keepLevel',key:'keepLevel',ic:'👑',name:'ارباب قلعه',goals:[5,10,20,30],t:n=>'قلعه را به سطح '+n+' برسان'},
- {id:'power',key:'power',ic:'💪',name:'ارتش بزرگ',goals:[10000,100000,1000000,10000000],t:n=>'قدرت ارتش به '+n+' برسد'}];
+ {id:'power',key:'power',ic:'💪',name:'ارتش بزرگ',goals:[10000,100000,1000000,10000000],t:n=>'قدرت ارتش به '+n+' برسد'},
+ {id:'armyCount',key:'armyCount',ic:'🪖',name:'لشکر انبوه',cat:'نظامی',goals:[5000,25000,100000,300000],t:n=>'تعداد سربازان به '+n+' برسد'},
+ {id:'wallLevel',key:'wallLevel',ic:'🧱',name:'دژ نفوذناپذیر',cat:'دفاعی',goals:[5,10,20,30],t:n=>'دیوار را به سطح '+n+' برسان'},
+ {id:'hideoutLevel',key:'hideoutLevel',ic:'🕳️',name:'امین منابع',cat:'اقتصادی',goals:[5,10,20,30],t:n=>'مخفیگاه را به سطح '+n+' برسان'},
+ {id:'hospitalLevel',key:'hospitalLevel',ic:'🏥',name:'درمانگر بزرگ',cat:'پشتیبانی',goals:[5,10,20,30],t:n=>'بیمارستان را به سطح '+n+' برسان'},
+ {id:'buildingsLevel',key:'buildingsLevel',ic:'🏗️',name:'معمار امپراتوری',cat:'عمرانی',goals:[30,70,140,250],t:n=>'مجموع سطوح ساختمان‌ها به '+n+' برسد'},
+ {id:'resourceStock',key:'resourceStock',ic:'📦',name:'انباردار',cat:'اقتصادی',goals:[1000000,10000000,50000000,100000000],t:n=>'موجودی منابع به '+n+' برسد'},
+ {id:'goldStock',key:'goldStock',ic:'🪙',name:'خزانه‌دار',cat:'اقتصادی',goals:[500,2500,10000,50000],t:n=>'موجودی سکه به '+n+' برسد'},
+ {id:'commanderCount',key:'commanderCount',ic:'🎖️',name:'شورای فرماندهی',cat:'نظامی',goals:[1,2,3,4],t:n=>n+' فرمانده آزاد کن'},
+ {id:'campCount',key:'campCount',ic:'⛺',name:'استاد کمین',cat:'اکتشاف',goals:[1,2,3,5],t:n=>'هم‌زمان '+n+' کمپ داشته باش'},
+ {id:'bossDamage',key:'bossDamage',ic:'🗿',name:'شکارچی غول',cat:'قهرمانی',goals:[10000,100000,1000000,10000000],t:n=>'به غول '+n+' آسیب وارد کن'},
+ {id:'bossHits',key:'bossHits',ic:'💥',name:'ضربه‌زن',cat:'قهرمانی',goals:[1,10,50,100],t:n=>n+' بار به غول ضربه بزن'},
+ {id:'spyCount',key:'spyCount',ic:'🕵️',name:'چشم پنهان',cat:'اطلاعاتی',goals:[10,50,250,1000],t:n=>'تعداد جاسوس‌ها به '+n+' برسد'},
+ {id:'clanJoined',key:'clanJoined',ic:'🏳️',name:'هم‌پیمان',cat:'اجتماعی',goals:[1],t:()=> 'به یک قبیله بپیوند'},
+ {id:'marcher',key:'marches',ic:'🚩',name:'راه‌پیمای بزرگ',cat:'اکتشاف',goals:[10,50,200,1000],t:n=>n+' لشکرکشی انجام بده'},
+ {id:'builder',key:'upgraded',ic:'🔨',name:'سازنده',cat:'عمرانی',goals:[10,50,200,500],t:n=>n+' بار ساختمان ارتقا بده'},
+ {id:'trainer',key:'trained',ic:'⚔️',name:'فرمانده سپاه',cat:'نظامی',goals:[5000,50000,250000,1000000],t:n=>n+' سرباز آموزش بده'},
+ {id:'healer',key:'healed',ic:'🩹',name:'شفادهنده',cat:'پشتیبانی',goals:[500,5000,50000,250000],t:n=>n+' سرباز درمان کن'},
+ {id:'explorer',key:'sites',ic:'🧭',name:'کاوشگر',cat:'اکتشاف',goals:[5,25,100,500],t:n=>n+' مکان را غارت کن'},
+ {id:'guardian',key:'defended',ic:'🛡️',name:'نگهبان قلمرو',cat:'دفاعی',goals:[5,25,100,500],t:n=>n+' حمله را دفع کن'},
+ {id:'fieldHero',key:'won',ic:'🏅',name:'قهرمان میدان',cat:'نظامی',goals:[10,50,250,1000],t:n=>n+' نبرد پیروز شو'},
+ {id:'warstorm',key:'kills',ic:'🔥',name:'طوفان جنگ',cat:'نظامی',goals:[5000,50000,500000,5000000],t:n=>n+' دشمن را شکست بده'},
+ {id:'expansionist',key:'conquered',ic:'🏴',name:'گسترش‌طلب',cat:'قلمرو',goals:[5,25,100,500],t:n=>n+' قلعه فتح کن'},
+ {id:'legendpower',key:'power',ic:'👑',name:'قدرت افسانه‌ای',cat:'نظامی',goals:[50000,250000,1000000,5000000],t:n=>'قدرت ارتش به '+n+' برسد'}];
 const ACH_GOLD=[60,180,450,1100,2600];
 
 export function getStat(S,key){
   if(key==='kills')return S.kills||0;
   if(key==='conquered')return S.conquered||0;
   if(key==='keepLevel')return S.buildings.find(b=>b.type==='keep')?.level||1;
+  if(key==='wallLevel')return S.buildings.find(b=>b.type==='wall')?.level||0;
+  if(key==='hideoutLevel')return S.buildings.find(b=>b.type==='hideout')?.level||0;
+  if(key==='hospitalLevel')return S.buildings.find(b=>b.type==='hospital')?.level||0;
   if(key==='power')return armyPower(S.troops);
+  if(key==='armyCount')return Object.values(S.troops||{}).reduce((a,b)=>a+(b||0),0);
+  if(key==='resourceStock')return Object.values(S.resources||{}).reduce((a,b)=>a+(b||0),0);
+  if(key==='goldStock')return S.resources?.gold||0;
+  if(key==='buildingsLevel')return (S.buildings||[]).reduce((a,b)=>a+(b.level||0),0);
+  if(key==='commanderCount')return S.cmd?.unlocked?.length||0;
+  if(key==='campCount')return S.camps?.length||0;
+  if(key==='bossDamage')return S.boss?.dmg||0;
+  if(key==='bossHits')return S.boss?.hits||0;
+  if(key==='spyCount')return S.troops?.spy||0;
+  if(key==='clanJoined')return S.myClan?1:0;
   return(S.stats&&S.stats[key])||0;}
 export const bump=(S,key,n=1)=>{S.stats=S.stats||{};S.stats[key]=(S.stats[key]||0)+n;};
 
@@ -90,7 +126,7 @@ export function questsHTML(S,tab,fmt,now=Date.now()){
     return tabs+ACH.map(a=>{const t=q.ach[a.id]||0,goal=a.goals[t],max=goal==null;
       const cur=max?a.goals[a.goals.length-1]:achProgress(S,a,goal),pct=max?100:Math.floor(cur/goal*100);
       const rw={gold:ACH_GOLD[Math.min(t,ACH_GOLD.length-1)],food:2000000*(t+1),iron:600000*(t+1)};
-      return '<div class="card"><div class="bhead">'+a.ic+' <b>'+a.name+'</b><span class="lvl">مرحله '+Math.min(t+1,a.goals.length)+'/'+a.goals.length+'</span></div>'
+      return '<div class="achievement-card"><div class="ach-head"><span class="ach-icon">'+a.ic+'</span><b>'+a.name+'</b><span class="ach-cat">'+(a.cat||'افتخار')+'</span><span class="lvl">مرحله '+Math.min(t+1,a.goals.length)+'/'+a.goals.length+'</span></div>'
        +(max?'<div class="q">🏅 همه مراحل کامل شد</div>':'<div class="q">'+a.t(fmt(goal))+' — '+fmt(cur)+'/'+fmt(goal)+'</div><div class="bar"><i style="width:'+pct+'%"></i></div><div class="q">🎁 '+rwStr(rw,fmt)
         +(cur>=goal?' <button class="btn sm gold" onclick="claimA(\''+a.id+'\')">🎁 دریافت</button>':'')+'</div>')+'</div>';}).join('');}
   const d=new Date(now);const midnight=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1).getTime();

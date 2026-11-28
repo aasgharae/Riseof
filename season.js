@@ -2,6 +2,7 @@ import{SEASON,BOSS_POS}from'./config.js';
 import{TROOPS,TROOP_CLASS}from'./config.js';
 import{classShares}from'./combat.js';
 import{hash2}from'./js/noise.js';
+import{seasonCosmetics}from'./cosmetics.js';
 export{BOSS_POS};
 const DAY=864e5,H=36e5;
 export const WEAK_ORDER=['cav','archer','inf','spear','siege'];
@@ -52,7 +53,17 @@ export function finalizeSeason(S,now=Date.now()){
   if(me){const rw=rewardFor(me.rank,rows.length);
     S.resources.gold=(S.resources.gold||0)+rw.gold;for(const k of['food','wood','stone','iron'])S.resources[k]=(S.resources[k]||0)+rw.res;
     S.cmd.emblems=(S.cmd.emblems||0)+rw.emblems;
-    res={season:S.season.id,rank:me.rank,total:rows.length,dmg:me.dmg,...rw};}
+    let cosmetics=null;
+    if(me.rank===1){
+      const prize=seasonCosmetics(S.season.id),prof=S.profile||(S.profile={});
+      prof.unlockedHeroSkins=Array.isArray(prof.unlockedHeroSkins)?prof.unlockedHeroSkins:[];
+      prof.unlockedCastleSkins=Array.isArray(prof.unlockedCastleSkins)?prof.unlockedCastleSkins:[];
+      if(!prof.unlockedHeroSkins.includes(prize.hero.id))prof.unlockedHeroSkins.push(prize.hero.id);
+      if(!prof.unlockedCastleSkins.includes(prize.castle.id))prof.unlockedCastleSkins.push(prize.castle.id);
+      const mePlayer=(S.players||[]).find(p=>p.id==='me');if(mePlayer){mePlayer.profile={...prof};}
+      cosmetics={hero:prize.hero,castle:prize.castle};
+    }
+    res={season:S.season.id,rank:me.rank,total:rows.length,dmg:me.dmg,...rw,cosmetics};}
   else res={season:S.season.id,rank:null,total:rows.length,dmg:0,label:'بدون شرکت در نبرد با غول',gold:0,emblems:0,res:0};
   S.pastSeasons=S.pastSeasons||[];S.pastSeasons.unshift(res);S.pastSeasons.length=Math.min(S.pastSeasons.length,8);
   S.season=newSeason(S.season.id+1,now);S.boss=null;

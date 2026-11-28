@@ -1,10 +1,11 @@
 import{TROOPS,BUILD_DEFS,BATCH_OPTIONS,EXTRA_NAMES,FACTIONS,MAX_LEVEL,CLASS_INFO,TROOP_CLASS,COUNTER,NPC,hospitalCap,buildingProd,upgradeCost,upgradeTime,speedCost,expeditionCap,maxMarches,marchSpeed,factionAt,tribeLevelAt,WORLD_W,WORLD_H,CASTLE_COUNT,hideoutCap,formatDuration}from'./config.js';
+import{BASE_AVATARS,HERO_SKINS,CASTLE_SKINS,DEFAULT_AVATAR_ID,avatarById,castleSkinById}from'./cosmetics.js';
 import{SAVE_KEY,freshState,load,save,storageCap,addLog}from'./state.js';
 import{armyPower,armyCount,battle,genGarrison,troopMultVs,bestCounters,marginFactor,carryLimit}from'./combat.js';
 import{hospitalLevel,woundedCount,healingCount,addWounded,healCost,healTime}from'./hospital.js';
 import{buildTribe,scaleTribe,queueRespawn,processRespawns,npcGrow,startWar,resolveWar,maybeRaid,resolveRaid}from'./npc.js';
 import{genSites,siteReady,lootSite,SITE_KINDS}from'./sites.js';
-import{ensureQuests,questsHTML,claimQuest,claimAch,countClaimable,bump}from'./quests.js';
+import{ensureQuests,questsHTML,claimQuest,claimAch,countClaimable,bump,ACH,getStat}from'./quests.js';
 import{COMMANDERS,CMD,MAX_UNLOCK,MAX_CMD_LEVEL,TOKEN_LEVELS,ensureCmd,grantTokens,unlockCmd,upgradeCmd,upgradeCost as cmdUpCost,busyCmds,freeCmds,cmdFx,homeFx,battleMods,energyCost,armyCap,fxChips,scaleOf}from'./commanders.js';
 import{runSpy,getIntel,estPower,enemySpies}from'./spy.js';
 import{ensureEnergy,spendEnergy}from'./energy.js';
@@ -47,7 +48,8 @@ const cv=$('cv'),R=new Renderer(cv);R.setState(S);
   ensureQuests(S);ensureCmd(S);ensureEnergy(S);ensureSeason(S);
   R.setState(S);R.bossOn=bossPhase(S)==='active';save(S);
 })();
-ensurePlayers(S);ensureShield(S);initAdmin(S);R.setView('world'); // ورود: دوربین روی قلعه خودت، زوم نزدیک
+ensurePlayers(S);if(!S.profile)S.profile={name:playerById(S,'me')?.name||'فرمانروا',avatarId:DEFAULT_AVATAR_ID,flag:'🏰',title:'فرمانروای قلمرو',bio:'',unlockedHeroSkins:[],unlockedCastleSkins:[]};
+S.profile.avatarId=BASE_AVATARS.some(a=>a.id===S.profile.avatarId)?S.profile.avatarId:(HERO_SKINS.some(a=>a.id===S.profile.avatarId)?S.profile.avatarId:DEFAULT_AVATAR_ID);S.profile.unlockedHeroSkins=Array.isArray(S.profile.unlockedHeroSkins)?S.profile.unlockedHeroSkins:[];S.profile.unlockedCastleSkins=Array.isArray(S.profile.unlockedCastleSkins)?S.profile.unlockedCastleSkins:[];ensureShield(S);initAdmin(S);R.setView('world'); // ورود: دوربین روی قلعه خودت، زوم نزدیک
 
 
 const toast=m=>{const t=$('toast');if(!t)return;t.innerHTML=m;clearTimeout(t._h);t._h=setTimeout(()=>t.textContent='',2600);};
@@ -75,7 +77,7 @@ if($('res-food')){$('res-food').textContent='🌾 '+fmt(S.resources.food);$('res
 const keepLv=S.buildings.find(b=>b.type==='keep')?.level||1;
 $('dayLabel').textContent='🏰Lv'+keepLv+' • ⚔'+fmt(armyPower(S.troops))+' • 👥'+fmt(armyCount(S.troops));}}
 
-function setViewUI(v){R.setView(v);const b=$('btnView');if(b)b.textContent=v==='world'?'🏰':'🌍';}
+function setViewUI(v){R.setView(v);const b=$('btnView');if(b)b.textContent=v==='world'?'🏰':'🌍';if(typeof setDock==='function')setDock();}
 window.toggleView=()=>{setViewUI(R.view==='world'?'castle':'world');};
 function canPay(c){for(const k in c)if((S.resources[k]||0)<c[k])return false;return true;}
 function pay(c){for(const k in c)S.resources[k]-=c[k];}
@@ -320,7 +322,7 @@ function handleRaid(raid){
     addLog(S,'win','🛡 حمله '+raid.name+' دفع شد! ☠'+fmt(o.kills)+' دشمن'+lostTxt+' — بدون انتقال منابع از مهاجم',rdet({loot:o.loot}));
     toast('🛡 <b>حمله '+raid.name+' دفع شد!</b> ☠'+fmt(o.kills)+' دشمن کشته شد');}}
 
-// ---------- منوی ۴گانه روی قلعه‌های نقشه ----------
+// ---------- منوی ۵گانه روی قلعه‌های نقشه (دکمه پنجم: پروفایل) ----------
 window.mapMenu=(id)=>{const t=getTarget(id);if(!t)return;mapMenuTarget=id;const o=origin();mapMenuPath=findPath(R.terr,{x:o.x,y:o.y},{x:t.x,y:t.y});openSheet('mapmenu');};
 let mapMenuTarget=null,mapMenuPath=null;
 function renderMapMenu(){const B=$('sheetBody'),t=getTarget(mapMenuTarget);
@@ -333,8 +335,9 @@ function renderMapMenu(){const B=$('sheetBody'),t=getTarget(mapMenuTarget);
     +'<button class="map-action" '+(isAlly?'disabled':'')+' onclick="openDetail(\''+t.id+'\')">🚩<br>حمله</button>'
     +'<button class="map-action" onclick="quickSpy(\''+t.id+'\')">🕵️<br>جاسوسی</button>'
     +'<button class="map-action" '+(!isPlayer?'disabled':'')+' onclick="openThreadByTribe(\''+t.id+'\')">✉️<br>پیام</button>'
-    +'<button class="map-action" '+(!isPlayer?'disabled':'')+' onclick="inviteClan(\''+t.id+'\')">🏳️<br>دعوت به قبیله</button></div>'
-    +'<div class="q" style="justify-content:center;margin-top:10px">'+(isAlly?'این قلعه هم‌قبیله‌ای توست؛ حمله غیرفعال است':!isPlayer?'برای قلعه‌های NPC پیام و دعوت قبیله غیرفعال است':'یک عملیات انتخاب کن')+'</div>';}
+    +'<button class="map-action" '+(!isPlayer?'disabled':'')+' onclick="inviteClan(\''+t.id+'\')">🏳️<br>دعوت به قبیله</button>'
+    +'<button class="map-action" onclick="openTargetProfile(\''+t.id+'\')">👤<br>پروفایل</button></div>'
+    +'<div class="q" style="justify-content:center;margin-top:10px">'+(isAlly?'این قلعه هم‌قبیله‌ای توست؛ حمله غیرفعال است':!isPlayer?'اطلاعات این قلعه و فرمانروای NPC را مشاهده کن':'یک عملیات انتخاب کن')+'</div>';}
 window.quickSpy=(id)=>{const t=getTarget(id);if(!t)return;spyN=Math.max(spyN,10);doSpy(id);};
 window.openThreadByTribe=(id)=>{const t=getTarget(id);
   if(t&&t.playerId){msgsPeer=t.playerId;msgsTab='thread';markRead(S,t.playerId);openSheet('msgs');}
@@ -466,7 +469,7 @@ window.sendClanChat=()=>{const c=myClan(S);if(!c)return;
   save(S);renderSheet();};
 
 // ================= UI =================
-let msgsTab='inbox',msgsPeer=null,cur='build',atkSort='near',searchQ='',boardTab='power',trainBar='bar-1',trainCls='all',trainQty=100,qTab='daily',selCmd=null,detailCamp=null,spyN=10,campDraft=null;
+let msgsTab='inbox',msgsPeer=null,cur='build',atkSort='near',searchQ='',boardTab='power',trainBar='bar-1',trainCls='all',trainQty=100,qTab='daily',selCmd=null,detailCamp=null,spyN=10,campDraft=null,profileTargetTribeId=null,profileTargetId=null;
 function costStr(c){return Object.entries(c).map(([k,v])=>({food:'🌾',wood:'🪵',stone:'🪨',iron:'⛓️',gold:'🪙'})[k]+' '+fmt(v)).join('  ');}
 function prodStr(t,l){const p=buildingProd(t,l);const e=Object.entries(p);if(!e.length)return'—';
   return e.map(([k,v])=>({food:'🌾',wood:'🪵',stone:'🪨',iron:'⛓️',gold:'🪙'})[k]+'+'+fmt(v*60)+'/د').join('  ');}
@@ -518,6 +521,8 @@ function renderSheet(){const els=[$('sheetBody'),$('sheetCard')],st=els.map(e=>e
   els.forEach((e,i)=>{if(e)e.scrollTop=st[i];});}
 function _renderSheet(){const B=$('sheetBody');if(!B||$('sheet').hidden)return;
 if(cur==='mapmenu'){renderMapMenu();return;}
+if(cur==='profile'){renderProfile();return;}
+if(cur==='help'){B.innerHTML='<div class="card"><b>📖 راهنمای RISE</b><div class="q">در نقشه جهان قلعه‌ها و مکان‌ها را انتخاب کن؛ در نقشه قلعه ساختمان‌ها را مدیریت کن. از منوی سه‌خطی به پروفایل، دستاوردها، رتبه‌بندی، قبیله، پیام‌ها و گزارش‌ها دسترسی داری.</div></div>';return;}
 if(cur==='clan'){renderClan();return;}
 if(cur==='shop'){renderShop();return;}
 if(cur==='build'){
@@ -757,6 +762,74 @@ if(cur==='empire'){
     +'<div class="bhead" style="margin:12px 0 2px">🗺 قلمروها</div>'+perFaction
     +'<div class="card">'+Object.keys(TROOPS).map(tid=>TROOPS[tid].icon+' '+TROOPS[tid].name+': <b>'+fmt(S.troops[tid]||0)+'</b>').join('<br>')+'</div>';}}
 window.setBoardTab=(k)=>{boardTab=k;renderSheet();};
+
+window.openOwnProfile=()=>{profileTargetTribeId=null;profileTargetId=null;closeDrawer();openSheet('profile');};
+window.openTargetProfile=id=>{const t=getTarget(id);if(!t)return;profileTargetTribeId=t.id;profileTargetId=t.playerId||null;openSheet('profile');};
+function safeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function renderProfile(){
+  const B=$('sheetBody');if(!B)return;
+  const self=!profileTargetTribeId&&!profileTargetId;
+  const t=profileTargetTribeId?getTarget(profileTargetTribeId):null;
+  const p=self?playerById(S,'me'):(profileTargetId?playerById(S,profileTargetId):null);
+  const prof=self?(S.profile||(S.profile={})):((p&&p.profile)||{});
+  const name=self?(prof.name||p?.name||'فرمانروا'):(prof.name||p?.name||t?.name||'فرمانروای ناشناس');
+  const avatarItem=avatarById(prof.avatarId||DEFAULT_AVATAR_ID),avatar=avatarItem.emoji,flag=prof.flag||'🏰',title=prof.title||'فرمانروای قلمرو';
+  const ownedHeroes=self?(prof.unlockedHeroSkins||[]):(prof.unlockedHeroSkins||[]),ownedCastles=self?(prof.unlockedCastleSkins||[]):(prof.unlockedCastleSkins||[]);
+  const castleSkin=castleSkinById(prof.castleSkinId);
+  const pos=t?{x:t.x,y:t.y}:S.homePos;
+  const rank=self?(rankBoard(S,'power').find(x=>x.me)?.rank||'—'):(t?([...S.tribes].sort((a,b)=>(b.power||0)-(a.power||0)).findIndex(x=>x.id===t.id)+1):'—');
+  const power=self?armyPower(S.troops):(t?.power||0);
+  const kills=self?(S.kills||0):(t?.kills||0),wins=self?((S.stats&&S.stats.won)||0):(t?.wins||0);
+  const conquered=self?(S.conquered||0):(t?.conquered||0);
+  const achDone=self?Object.values(S.quests?.ach||{}).reduce((a,v)=>a+(v||0),0):0;
+  const featured=self?ACH.filter(a=>(S.quests?.ach?.[a.id]||0)>=a.goals.length).slice(0,3):[];
+  let h='<div class="profile-hero"><div class="profile-avatar">'+safeHtml(avatar)+'</div><div><div class="pname">'+safeHtml(name)+'</div><div class="psub">'+safeHtml(title)+' • '+safeHtml(flag)+'</div><div class="psub">'+(self?'حساب من':'پروفایل فرمانروا')+'</div></div></div>';
+  h+='<div class="card castle-skin-preview '+(castleSkin?safeHtml(castleSkin.className):'')+'"><b>🏰 اسکین قلعه</b><div class="castle-skin-art">'+(castleSkin?safeHtml(castleSkin.emoji):'🏰')+'</div><div class="q">'+(castleSkin?safeHtml(castleSkin.name):'دژ پایه')+'</div></div>';
+  h+='<div class="statgrid" style="margin-top:10px">'
+    +'<div class="stat">🏆 رتبه قدرت<b>#'+rank+'</b></div>'
+    +'<div class="stat">⚔ قدرت ارتش<b>'+fmt(power)+'</b></div>'
+    +'<div class="stat">☠ کشتار<b>'+fmt(kills)+'</b></div>'
+    +'<div class="stat">🏅 پیروزی<b>'+fmt(wins)+'</b></div>'
+    +'<div class="stat">🏰 فتوحات<b>'+fmt(conquered)+'</b></div>'
+    +'<div class="stat">🎖 دستاوردها<b>'+achDone+'</b></div></div>';
+  h+='<div class="card"><div class="bhead"><b>🗺️ موقعیت قلمرو</b><span class="lvl">'+(t?'قلعه هدف':'قلعه اصلی')+'</span></div>'
+    +'<div class="q">📍 مختصات: X '+Math.round(pos?.x||0)+' ، Y '+Math.round(pos?.y||0)+'</div>'
+    +(t?'<div class="q">🏰 '+safeHtml(t.name)+' • سطح '+(t.level||1)+' • '+safeHtml(t.factionName||'قلمرو مستقل')+'</div>':'<div class="q">🏰 قلعه اصلی شما در نقشه جهان</div>')
+    +(t?'<button class="btn sm" onclick="jumpTo(\''+t.id+'\')">📍 نمایش روی نقشه</button>':'<button class="btn sm" onclick="goHome()">📍 رفتن به قلعه من</button>')+'</div>';
+  if(self){
+    h+='<div class="card"><div class="bhead"><b>✏️ ویرایش پروفایل</b></div>'
+      +'<label class="q">نام فرمانروا</label><input class="profile-input" id="profileName" maxlength="24" value="'+safeHtml(name)+'" placeholder="نام فرمانروا">'
+      +'<label class="q">شخصیت پروفایل — فقط ۴ شخصیت پایه</label><div class="cosmetic-grid">'+BASE_AVATARS.map(a=>'<button type="button" class="cosmetic-choice '+(a.id===(prof.avatarId||DEFAULT_AVATAR_ID)?'selected':'')+'" onclick="chooseAvatar(\''+a.id+'\')"><span>'+a.emoji+'</span><small>'+a.name+'</small></button>').join('')+'</div>'
+      +'<label class="q">اسکین‌های شخصیتِ جایزه‌ای</label><div class="cosmetic-grid">'+HERO_SKINS.filter(a=>ownedHeroes.includes(a.id)).map(a=>'<button type="button" class="cosmetic-choice '+(a.id===prof.avatarId?'selected':'')+'" onclick="chooseAvatar(\''+a.id+'\')"><span>'+a.emoji+'</span><small>'+a.name+'</small></button>').join('')+(ownedHeroes.length?'':'<div class="q">هنوز اسکین ویژه‌ای دریافت نکرده‌ای. اسکین قهرمان هر فصل به نفر اول تعلق می‌گیرد.</div>')+'</div>'
+      +'<label class="q">اسکین قلعه‌های جایزه‌ای</label><div class="cosmetic-grid">'+CASTLE_SKINS.filter(a=>ownedCastles.includes(a.id)).map(a=>'<button type="button" class="cosmetic-choice '+(a.id===prof.castleSkinId?'selected':'')+'" onclick="chooseCastleSkin(\''+a.id+'\')"><span>'+a.emoji+'</span><small>'+a.name+'</small></button>').join('')+(ownedCastles.length?'':'<div class="q">اسکین قلعه ویژه پس از قهرمانی فصل آزاد می‌شود.</div>')+'</div>'
+      +'<label class="q">پرچم یا نشان</label><input class="profile-input" id="profileFlag" maxlength="12" value="'+safeHtml(flag)+'" placeholder="🏰">'
+      +'<label class="q">عنوان افتخاری</label><input class="profile-input" id="profileTitle" maxlength="32" value="'+safeHtml(title)+'" placeholder="فرمانروای قلمرو">'
+      +'<label class="q">معرفی کوتاه</label><textarea class="profile-input" id="profileBio" maxlength="160" rows="3" placeholder="درباره قلمرو و سبک بازی خودت">'+safeHtml(prof.bio||'')+'</textarea>'
+      +'<button class="btn wide" onclick="saveProfile()">💾 ذخیره پروفایل</button></div>';
+    if(featured.length)h+='<div class="card"><b>🏅 افتخارات برجسته</b>'+featured.map(a=>'<div class="q">'+a.ic+' '+a.name+'</div>').join('')+'</div>';
+    h+='<button class="btn wide ghost" onclick="qTab=\'ach\';openSheet(\'quests\')">🏅 مشاهده همه دستاوردها</button>';
+  }else{
+    h+='<div class="card"><b>📜 معرفی</b><div class="q">'+safeHtml(prof.bio||(p?'این بازیکن هنوز توضیحی برای پروفایلش ثبت نکرده.':'این قلعه متعلق به یکی از فرمانروایان NPC جهان بازی است.'))+'</div></div>';
+    if(!p)h+='<div class="q">توجه: این قلعه در نسخه فعلی NPC است؛ پروفایل بازیکن واقعی فقط برای قلعه‌های متصل به حساب بازیکن نمایش داده می‌شود.</div>';
+  }
+  B.innerHTML=h;
+}
+window.chooseAvatar=id=>{const p=S.profile||{};if(!BASE_AVATARS.some(a=>a.id===id)&&!(p.unlockedHeroSkins||[]).includes(id))return toast('این اسکین هنوز آزاد نشده است');p.avatarId=id;S.profile=p;save(S);renderSheet();updateDrawerUser();};
+window.chooseCastleSkin=id=>{const p=S.profile||{};if(!(p.unlockedCastleSkins||[]).includes(id))return toast('این اسکین قلعه هنوز آزاد نشده است');p.castleSkinId=id;S.profile=p;save(S);renderSheet();};
+window.saveProfile=()=>{
+  const name=$('profileName')?.value.trim()||'';
+  if(name.length<3)return toast('نام فرمانروا حداقل ۳ نویسه باشد');
+  const me=playerById(S,'me');
+  const old=S.profile||{};S.profile={...old,name,avatarId:old.avatarId||DEFAULT_AVATAR_ID,flag:$('profileFlag')?.value.trim()||'🏰',
+    title:$('profileTitle')?.value.trim()||'فرمانروا',bio:$('profileBio')?.value.trim()||'',unlockedHeroSkins:old.unlockedHeroSkins||[],unlockedCastleSkins:old.unlockedCastleSkins||[]};
+  if(me){me.name=name;me.profile={...S.profile};}
+  save(S);updateDrawerUser();renderSheet();toast('پروفایل ذخیره شد');
+};
+function updateDrawerUser(){
+  const p=S.profile||{},n=$('drawerName'),a=$('drawerAvatar');
+  if(n)n.textContent=p.name||playerById(S,'me')?.name||'فرمانروا';
+  if(a)a.textContent=avatarById(p.avatarId||DEFAULT_AVATAR_ID).emoji;
+}
 window.goHome=()=>{$('sheet').hidden=true;setViewUI('world');R.setView('world');R.centerOn(S.homePos.x,S.homePos.y);};
 window.setAtkSort=(k)=>{atkSort=k;renderSheet();};
 window.setAtkSort2=(k)=>{atkSort=k;renderSheet();};
@@ -854,9 +927,32 @@ function updateDetailTotals(){const el=$('selTotals');if(!el)return;
   el.innerHTML=head('⚔'+fmt(r.atk)+' در برابر '+fmt(r.def)+' '+(cnt>cap?'⚠️ بیش از ظرفیت':ok?'✅ شانس پیروزی':'⚠️ کافی نیست'),ok?'var(--green)':'var(--red)')
    +'<div class="q">🎯 ضریب تقابل: شما ×'+r.atkMul.toFixed(2)+' • دشمن ×'+r.defMul.toFixed(2)+' • 📉 تلفات تخمینی: '+Math.round(r.aLoss*100)+'٪ • '+en+'</div>';}
 function openSheet(k){cur=k;if(k==='mapmenu')mapMenuTarget=mapMenuTarget;msgsPeer=msgsPeer;$('sheet').hidden=false;
-  $('sheetTitle').textContent={build:'🏗️ ساخت و ارتقا',train:'⚔️ سربازخانه',attack:'🚩 لشکرکشی',detail:'🎯 جزئیات هدف',search:'🔍 جستجو در نقشه',reports:'📜 گزارش‌ها',empire:'👑 امپراتوری',board:'🏆 لیدربرد',hospital:'🏥 بیمارستان',quests:'🎯 ماموریت‌ها و دستاوردها',cmd:'🎖 فرماندهان ارشد',boss:'🗿 غول آخر فصل',campSetup:'⛺ برپایی کمپ',msgs:'✉️ پیام‌ها',mapmenu:'🎯 انتخاب عملیات',clan:'🏳️ قبیله',shop:'🛒 فروشگاه'}[k]||'';
+  $('sheetTitle').textContent={build:'🏗️ ساخت و ارتقا',train:'⚔️ سربازخانه',attack:'🚩 لشکرکشی',detail:'🎯 جزئیات هدف',search:'🔍 جستجو در نقشه',reports:'📜 گزارش‌ها',empire:'👑 امپراتوری',board:'🏆 لیدربرد',hospital:'🏥 بیمارستان',quests:'🎯 ماموریت‌ها و دستاوردها',cmd:'🎖 فرماندهان ارشد',boss:'🗿 غول آخر فصل',campSetup:'⛺ برپایی کمپ',msgs:'✉️ پیام‌ها',mapmenu:'🎯 انتخاب عملیات',clan:'🏳️ قبیله',shop:'🛒 فروشگاه',profile:'👤 پروفایل فرمانروا',help:'📖 راهنمای بازی'}[k]||'';
   renderSheet();}
-document.querySelectorAll('#dock button').forEach(b=>b.onclick=()=>{if(b.dataset.act==='attack')detailCamp=null;if(b.dataset.act==='clan')cur='clan';openSheet(b.dataset.act==='clan'?'clan':b.dataset.act);});
+function closeDrawer(){const d=$('sideDrawer');if(d)d.hidden=true;}
+function openDrawer(){const d=$('sideDrawer');if(d)d.hidden=false;}
+function setDock(){
+  const world=R.view==='world';
+  const items=world?[
+    ['attack','🚩','لشکرها'],['search','🔍','جستجو'],['board','🏆','رتبه‌ها'],['clan','🏳️','قبیله'],['msgs','✉️','پیام‌ها']
+  ]:[
+    ['build','🏗️','ساخت'],['train','⚔️','سربازخانه'],['hospital','🏥','بیمارستان'],['attack','🚩','لشکر'],['cmd','🎖️','فرمانده']
+  ];
+  $('dock').innerHTML=items.map(([act,ic,label])=>'<button data-act="'+act+'" title="'+label+'"><em>'+ic+'</em><small>'+label+'</small>'+(['attack','train','msgs','quests'].includes(act)?'<i class="badge" hidden></i>':'')+'</button>').join('');
+  $('dock').querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    const a=b.dataset.act;if(a==='attack')detailCamp=null;
+    openSheet(a);
+  });
+}
+setDock();updateDrawerUser();
+$('menuToggle').onclick=openDrawer;$('drawerClose').onclick=closeDrawer;$('drawerScrim').onclick=closeDrawer;
+$('drawerPanel').querySelectorAll('[data-menu]').forEach(b=>b.onclick=()=>{
+  const a=b.dataset.menu;closeDrawer();
+  if(a==='profile')return window.openOwnProfile();
+  if(a==='help'){openSheet('help');return;}
+  if(a==='quests')qTab='ach';
+  openSheet(a);
+});
 $('sheetClose').onclick=()=>$('sheet').hidden=true;
 $('btnSearch').onclick=()=>openSheet('search');
 $('btnHome2').onclick=()=>{setViewUI('world');R.setView('world');R.centerOn(S.homePos.x,S.homePos.y);};
@@ -886,7 +982,7 @@ setInterval(()=>{
   ensureEnergy(S,now);
   for(const e of ensureSeason(S,now)){
     if(e.type==='spawn'){addLog(S,'win','🗿 غول آخر فصل در مرکز نقشه ظاهر شد! ۴۸ ساعت فرصت داری');toast('🗿 <b>غول آخر فصل ظاهر شد!</b>');}
-    if(e.type==='end'){const r=e.res;addLog(S,'win','🏁 فصل '+r.season+' تمام شد — رتبه '+(r.rank||'—')+' از '+r.total+' • '+r.label+' • 🪙'+r.gold+(r.emblems?' • 🎖×'+r.emblems:''));toast('🏁 فصل تمام شد: '+r.label+(r.rank?' (#'+r.rank+')':''));}}
+    if(e.type==='end'){const r=e.res;addLog(S,'win','🏁 فصل '+r.season+' تمام شد — رتبه '+(r.rank||'—')+' از '+r.total+' • '+r.label+' • 🪙'+r.gold+(r.emblems?' • 🎖×'+r.emblems:''));toast('🏁 فصل تمام شد: '+r.label+(r.rank?' (#'+r.rank+')':'')+(r.cosmetics?' • اسکین شخصیت و قلعه ویژه دریافت شد!':''));}}
   R.bossOn=bossPhase(S,now)==='active';
   const tk=grantTokens(S);if(tk.length){addLog(S,'info','🎫 توکن فرمانده گرفتی (قلعه Lv'+tk.join('، ')+')');toast('🎫 <b>توکن فرمانده ارشد</b> گرفتی! از ⚔️ سربازخانه ← 🎖 فرمانده انتخاب کن');}
   if(tickN%5===0)npcTick(S,Math.random,25);

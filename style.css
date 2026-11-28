@@ -27,10 +27,24 @@ button.ghost{background:var(--card)!important;color:var(--txt)!important;border:
 #zoomCtl{position:absolute;left:8px;bottom:86px;display:flex;flex-direction:column;gap:6px;z-index:4}
 #zoomCtl button{width:40px;height:40px;border-radius:12px;border:1px solid rgba(90,74,42,.7);background:rgba(30,25,12,.82);color:#ffd166;font-size:19px;font-weight:800;cursor:pointer;backdrop-filter:blur(4px)}
 /* داک پایین: فقط آیکن */
-#dock{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);left:8px;right:8px;max-width:100%;display:flex;gap:2px;overflow-x:auto;overflow-y:hidden;justify-content:flex-start;scrollbar-width:none;background:rgba(22,30,41,.96);border:1px solid var(--line);border-radius:16px;padding:7px 8px;box-shadow:0 10px 30px rgba(0,0,0,.45);backdrop-filter:blur(8px);z-index:6;overscroll-behavior-x:contain}
-#dock button{position:relative;flex:0 0 44px;background:none;border:0;color:var(--txt);display:flex;flex-direction:column;align-items:center;justify-content:center;width:44px;min-width:44px;height:46px;cursor:pointer;border-radius:12px;padding:0 4px}
+#dock{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);left:8px;right:68px;max-width:calc(100% - 84px);display:flex;gap:3px;overflow-x:auto;overflow-y:hidden;justify-content:flex-start;scrollbar-width:none;background:rgba(22,30,41,.96);border:1px solid var(--line);border-radius:16px;padding:6px 7px;box-shadow:0 10px 30px rgba(0,0,0,.45);backdrop-filter:blur(8px);z-index:6;overscroll-behavior-x:contain}
+#dock button{position:relative;flex:1 0 54px;background:none;border:0;color:var(--txt);display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:54px;height:48px;cursor:pointer;border-radius:12px;padding:2px 4px}
 #dock button:active{background:var(--card2)}
-#dock em{font-style:normal;font-size:22px;line-height:1}
+#dock em{font-style:normal;font-size:21px;line-height:1.15}
+#dock small{font-size:9.5px;color:var(--dim);white-space:nowrap}
+#menuToggle{position:fixed;z-index:7;right:9px;bottom:calc(env(safe-area-inset-bottom,0px) + 9px);width:51px;height:51px;border-radius:15px;border:1px solid #8e6b2e;background:linear-gradient(180deg,#28384b,#172333);color:var(--gold);font-size:26px;font-weight:900;box-shadow:0 8px 24px rgba(0,0,0,.5);cursor:pointer}
+#sideDrawer[hidden]{display:none}
+#sideDrawer{position:fixed;inset:0;z-index:20}
+#drawerScrim{position:absolute;inset:0;background:rgba(0,0,0,.62);backdrop-filter:blur(2px)}
+#drawerPanel{position:absolute;right:0;top:0;bottom:0;width:min(330px,86vw);overflow:auto;background:linear-gradient(180deg,#202d3d,#121b27);border-left:1px solid var(--line);box-shadow:-12px 0 35px rgba(0,0,0,.45);padding:calc(env(safe-area-inset-top,0px) + 14px) 14px calc(env(safe-area-inset-bottom,0px) + 18px);animation:drawerIn .2s ease}
+@keyframes drawerIn{from{transform:translateX(35px);opacity:.5}to{transform:none;opacity:1}}
+.drawer-head{display:flex;justify-content:space-between;align-items:center;color:var(--gold);font-size:17px;margin-bottom:15px}
+.drawer-head button{background:var(--card2);border:1px solid var(--line);color:var(--txt);border-radius:10px;width:34px;height:34px}
+.drawer-user{display:flex;align-items:center;gap:12px;padding:13px;background:var(--card2);border:1px solid var(--line);border-radius:14px;margin-bottom:12px;cursor:pointer}
+.drawer-user>span:first-child{font-size:30px}.drawer-user>span:last-child{margin-inline-start:auto;color:var(--gold);font-size:22px}
+.drawer-user small{display:block;color:var(--dim);font-size:11px;margin-top:3px}
+#drawerPanel>button{width:100%;text-align:right;padding:13px 12px;margin:4px 0;border:1px solid transparent;border-bottom-color:var(--line);border-radius:10px;background:transparent;color:var(--txt);font-size:14px;cursor:pointer}
+#drawerPanel>button:active{background:var(--card2)}
 .badge{position:absolute;top:0;right:2px;min-width:17px;height:17px;border-radius:9px;background:#e5484d;color:#fff;font-style:normal;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;box-shadow:0 0 0 2px #151b26}
 .badge[hidden]{display:none}
 /* شیت پایین‌رونده */
@@ -140,10 +154,32 @@ textarea.sinput{resize:vertical;line-height:1.8}
   #dock em{font-size:21px}
   #zoomCtl{bottom:calc(env(safe-area-inset-bottom,0px) + 78px)}
 }
-#sheetBody .map-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+#sheetBody .map-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
 #sheetBody .map-action{min-height:76px;border:1px solid var(--line);border-radius:14px;background:var(--card2);color:var(--txt);font-size:14px;font-weight:800;cursor:pointer}
 #sheetBody .map-action:disabled{opacity:.38;cursor:not-allowed}
 
 .msg.rep-win{border-right:3px solid var(--green)}
 .msg.rep-lose{border-right:3px solid var(--red)}
 .card .q{justify-content:space-between;gap:8px;flex-wrap:wrap}
+
+/* RISE v11 — پروفایل و منوی متناسب با نقشه */
+.profile-hero{display:flex;align-items:center;gap:13px;padding:16px;background:linear-gradient(135deg,#293c52,#192431);border:1px solid rgba(255,201,77,.4);border-radius:17px}
+.profile-avatar{width:66px;height:66px;flex:0 0 66px;border-radius:18px;display:grid;place-items:center;background:#101923;border:1px solid var(--gold);font-size:37px}
+.profile-hero .pname{font-size:18px;font-weight:900;color:var(--gold)}
+.profile-hero .psub{font-size:11px;color:var(--dim);margin-top:4px}
+.achievement-card{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:10px;margin:7px 0}
+.achievement-card .ach-head{display:flex;align-items:center;gap:8px}
+.achievement-card .ach-icon{font-size:23px}
+.achievement-card .ach-cat{margin-inline-start:auto;font-size:10px;color:var(--gold);background:rgba(255,201,77,.1);padding:3px 7px;border-radius:8px}
+#sheetBody input.profile-input,#sheetBody textarea.profile-input{width:100%;background:#0e141c;border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:10px;margin:5px 0}
+@media(max-width:520px){#dock{left:5px;right:64px;max-width:calc(100% - 74px)}#dock button{min-width:49px;flex-basis:49px}#dock small{font-size:8.5px}#menuToggle{right:7px;width:49px;height:49px}}
+
+@media(max-width:480px){#sheetBody .map-actions{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* انتخاب شخصیت و اسکین‌های فصلی؛ فاقد قابلیت آپلود تصویر */
+.cosmetic-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:8px 0 14px}
+.cosmetic-choice{min-width:0;padding:9px 4px;border:1px solid var(--line);border-radius:12px;background:#152331;color:var(--text);display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer}
+.cosmetic-choice span{font-size:27px}.cosmetic-choice small{font-size:10px;text-align:center}.cosmetic-choice.selected{border:2px solid var(--gold);background:#3b321d}
+.castle-skin-preview{display:flex;align-items:center;gap:12px;margin-top:10px}.castle-skin-art{font-size:35px;padding:8px 13px;border-radius:12px;background:rgba(255,255,255,.06)}
+.castle-skin-dragon{border-color:#a64b37}.castle-skin-phoenix{border-color:#d77b32}.castle-skin-shadow{border-color:#777}.castle-skin-ice{border-color:#79cde8}.castle-skin-gold{border-color:#d6ad43}.castle-skin-lion{border-color:#b88a43}.castle-skin-storm{border-color:#7d85d8}.castle-skin-royal{border-color:#b37bd8}
+@media(max-width:420px){.cosmetic-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
