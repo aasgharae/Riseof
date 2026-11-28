@@ -1,4 +1,5 @@
-import{TROOPS,TROOP_CLASS,COUNTER,CLASS_INFO}from'./config.js';
+import{TROOPS,TROOP_CLASS,COUNTER,CLASS_INFO,COUNTER_STRENGTH,CARRY_PER_UNIT,NPC_POWER_EXP}from'./config.js';
+const damp=m=>1+(m-1)*COUNTER_STRENGTH;
 export function armyPower(tr){let p=0;for(const k in tr){if(TROOP_CLASS[k]==='spy')continue;p+=(TROOPS[k]?.power||0)*(tr[k]||0);}return p;}
 export function armyCount(tr){let n=0;for(const k in tr)n+=tr[k]||0;return n;}
 
@@ -9,7 +10,7 @@ export function genGarrison(level,rng){
   const nTypes=Math.min(avail.length,2+Math.floor(rng()*3));
   const pool=[...avail],picks=[];
   while(picks.length<nTypes)picks.push(pool.splice(Math.floor(rng()*pool.length),1)[0]);
-  let remaining=Math.floor(150*Math.pow(level,1.75)*(0.9+rng()*0.25));
+  let remaining=Math.floor(150*Math.pow(level,NPC_POWER_EXP)*(0.9+rng()*0.25));
   const g={};
   picks.forEach((t,i)=>{
     const last=i===picks.length-1;
@@ -28,12 +29,12 @@ export function classShares(army){
 export function counterMult(a,b){
   const sa=classShares(a),sb=classShares(b);let m=0;
   for(const x in sa){if(!sa[x])continue;for(const y in sb){if(!sb[y])continue;m+=sa[x]*sb[y]*COUNTER[x][y];}}
-  return m>0?m:1;}
+  return m>0?damp(m):1;}
 // ضریب یک نوع سرباز در برابر ترکیب یک ارتش (برای نمایش در منو)
 export function troopMultVs(tid,army){
   const sb=classShares(army),c=TROOP_CLASS[tid];let m=0,t=0;
   for(const y in sb){m+=sb[y]*COUNTER[c][y];t+=sb[y];}
-  return t>0?m:1;}
+  return t>0?damp(m):1;}
 // بهترین کلاس‌ها برای شکست یک ارتش
 export function bestCounters(army){
   const sb=classShares(army),score={};
@@ -66,3 +67,12 @@ export function battle(att,def,wall=0,wallK=15,mods={}){
 export function resolveAttack(army,tribe,wallLvl=0){
   const r=battle(army,{army:tribe.garrison||{},power:tribe.power||0},wallLvl,15);
   return{win:r.win,atk:r.atk,def:r.def,loot:r.win?(tribe.loot||{gold:200}):{}};}
+
+// ---- غنیمت منطقی: به اختلاف قدرت و ظرفیت حمل بازماندگان وابسته است ----
+// ۰ = برد با اختلاف خیلی کم، ۱ = برد قاطع (قدرت مهاجم ≥ ۲ برابر دفاع)
+export const marginFactor=ratio=>Math.min(1,Math.max(0,(ratio-1.02)/1.0));
+// want: {منبع:مقدار} → مقدار قابل‌حمل؛ cap = بازماندگان × ظرفیت هر نفر × (۱+بونوس)
+export function carryLimit(want,survivors,bonus=0){
+  const cap=Math.floor(Math.max(1,survivors)*CARRY_PER_UNIT*(1+bonus));let tot=0;for(const k in want)tot+=want[k];
+  const sc=tot>cap?cap/tot:1,out={};for(const k in want)out[k]=Math.floor(want[k]*sc);
+  return{loot:out,cap,want:tot,capped:tot>cap};}

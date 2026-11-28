@@ -1,5 +1,5 @@
 import{BIOME}from'./js/worldgen.js';
-import{WORLD_W,WORLD_H,NPC}from'./config.js';
+import{WORLD_W,WORLD_H,NPC,NPC_LOOT_EXP}from'./config.js';
 import{genGarrison,armyPower}from'./combat.js';
 
 export const SITE_KINDS={
@@ -8,13 +8,15 @@ export const SITE_KINDS={
   ruins:{name:'خرابه‌های باستانی',icon:'🏺',note:'سکه، چوب و غذا'}};
 
 function siteLoot(kind,level,rng){
+  const LV=Math.pow(level,NPC_LOOT_EXP);
   const j=()=>0.8+rng()*0.5;
-  if(kind==='cave')return{food:Math.floor(4000*level*j()),wood:Math.floor(3000*level*j()),stone:Math.floor(14000*level*j()),iron:Math.floor(9000*level*j()),gold:Math.floor(60*level*j())};
-  if(kind==='treasure')return{food:Math.floor(6000*level*j()),wood:Math.floor(6000*level*j()),stone:Math.floor(3000*level*j()),iron:Math.floor(2000*level*j()),gold:Math.floor(260*level*j())};
-  return{food:Math.floor(12000*level*j()),wood:Math.floor(14000*level*j()),stone:Math.floor(2000*level*j()),iron:Math.floor(1000*level*j()),gold:Math.floor(140*level*j())};}
+  if(kind==='cave')return{food:Math.floor(4000*LV*j()),wood:Math.floor(3000*LV*j()),stone:Math.floor(14000*LV*j()),iron:Math.floor(9000*LV*j()),gold:Math.floor(60*LV*j())};
+  if(kind==='treasure')return{food:Math.floor(6000*LV*j()),wood:Math.floor(6000*LV*j()),stone:Math.floor(3000*LV*j()),iron:Math.floor(2000*LV*j()),gold:Math.floor(260*LV*j())};
+  return{food:Math.floor(12000*LV*j()),wood:Math.floor(14000*LV*j()),stone:Math.floor(2000*LV*j()),iron:Math.floor(1000*LV*j()),gold:Math.floor(140*LV*j())};}
 
 function fillSite(s,rng){
   s.garrison=genGarrison(s.level,rng);
+  for(const id in s.garrison)s.garrison[id]=Math.max(1,Math.round(s.garrison[id]*NPC.buff));
   s.power=Math.floor(armyPower(s.garrison)*1.1);
   s.loot=siteLoot(s.kind,s.level,rng);
   s.spies=Math.floor(s.level*5*(0.6+rng()*0.8));

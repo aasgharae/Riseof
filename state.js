@@ -1,4 +1,4 @@
-import{START_RESOURCES,STORAGE_BASE,WORLD_W,WORLD_H}from'./config.js';
+import{START_RESOURCES,STORAGE_BASE,WORLD_W,WORLD_H,NPC,NPC_POWER_EXP,NPC_POWER_EXP_OLD,NPC_LOOT_EXP}from'./config.js';
 export const SAVE_KEY='village_rise_v9';
 export const LEGACY_KEY='village_rise_v8';
 export function freshState(){return{v:9,day:1,resources:{...START_RESOURCES},
@@ -23,6 +23,16 @@ function migrateV8(o){
   if(!o.log)o.log=[];
   addLog(o,'info','🌍 جهان جدید و بزرگ‌تر (۸۰۰×۵۶۰) ساخته شد — منابع و ساختمان‌هایت حفظ شد');
   return o;}
+// قدرت NPCها در فاز ۳٫۳ بالا رفت: قلعه‌ها و گنج‌های سیوهای قدیمی یک‌بار بازمقیاس می‌شوند
+export function migrateNpcPower(S){
+  if(S.npcPowerV===2)return S;
+  const sc=(t,f,lf)=>{for(const id in (t.garrison||{}))t.garrison[id]=Math.max(1,Math.round(t.garrison[id]*f));
+    if(t.power!=null)t.power=Math.max(10,Math.floor(t.power*f));if(t.base!=null)t.base=Math.floor(t.base*f);
+    for(const r in (t.loot||{}))t.loot[r]=Math.floor(t.loot[r]*lf);};
+  for(const t of S.tribes||[]){const L=Math.max(1,t.level||1);sc(t,Math.pow(L,NPC_POWER_EXP-NPC_POWER_EXP_OLD),Math.pow(L,NPC_LOOT_EXP-1));}
+  for(const t of S.sites||[]){const L=Math.max(1,t.level||1);sc(t,Math.pow(L,NPC_POWER_EXP-NPC_POWER_EXP_OLD)*NPC.buff,Math.pow(L,NPC_LOOT_EXP-1));}
+  for(const r of S.respawns||[]){const L=Math.max(1,r.level||1);if(r.minPower)r.minPower=Math.floor(r.minPower*Math.pow(L,NPC_POWER_EXP-NPC_POWER_EXP_OLD));}
+  S.intel={};S.npcPowerV=2;return S;}
 // فیلدهای نسخه ۴ (بیمارستان، حمله NPC، گنج، ماموریت) برای سیوهای قدیمی
 export function ensureDefaults(S){
   if(!S || typeof S !== 'object') S=freshState();
@@ -64,6 +74,7 @@ export function ensureDefaults(S){
   if(!Object.prototype.hasOwnProperty.call(S,'shield'))S.shield=null;
   if(!S.cmd)S.cmd={tokens:1,unlocked:[],levels:{},emblems:0,granted:[]};
   if(!S.buildings.some(b=>b&&b.type==='hospital'))S.buildings.push({id:'hosp-1',type:'hospital',x:22,y:13,level:1});
+  migrateNpcPower(S);
   return S;
 }
 function loadRaw(){try{const s=localStorage.getItem(SAVE_KEY);

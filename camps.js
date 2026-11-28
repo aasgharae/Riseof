@@ -2,6 +2,7 @@ import{BIOME}from'./js/worldgen.js';
 import{WORLD_W,WORLD_H,CAMP,marchSpeed}from'./config.js';
 import{battle,armyCount}from'./combat.js';
 import{battleMods,cmdFx}from'./commanders.js';
+import{pointOnRoute}from'./js/pathfinding.js';
 
 // جای کمپ: خشکی، دور از قلعه و گنج و کمپ‌های دیگر
 export function campSpotError(S,terr,x,y){
@@ -16,8 +17,8 @@ export function campSpotError(S,terr,x,y){
 export function campSpeed(S,cmdId){return marchSpeed()*(1+CAMP.speed+(cmdFx(S,cmdId).speed||0));}
 export function campMods(S,camp){const fx=cmdFx(S,camp.cmd);
   return battleMods(fx,{atk:CAMP.surprise*(1+(fx.camp||0)),wall:CAMP.wallIgnore*(1+(fx.camp||0))});}
-const posRaid=(r,home)=>{const p=1-r.left/r.total;return[r.fx+(home.x-r.fx)*p,r.fy+(home.y-r.fy)*p];};
-const posWar=m=>{const p=1-m.left/m.total;return[m.x0+(m.x1-m.x0)*p,m.y0+(m.y1-m.y0)*p];};
+const posRaid=(r,home)=>{const p=1-r.left/r.total;if(r.route){const q=pointOnRoute(r.route,p);if(q)return[q.x,q.y];}return[r.fx+(home.x-r.fx)*p,r.fy+(home.y-r.fy)*p];};
+const posWar=m=>{const p=1-m.left/m.total;if(m.route){const q=pointOnRoute(m.route,p);if(q)return[q.x,q.y];}return[m.x0+(m.x1-m.x0)*p,m.y0+(m.y1-m.y0)*p];};
 // کمین: هر لشکر NPC که از شعاع کمپ رد شود، یک‌بار به آن حمله می‌شود
 export function campAmbush(S,hooks={}){
   const out=[];

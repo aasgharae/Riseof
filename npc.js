@@ -1,5 +1,5 @@
-import{EXTRA_NAMES,NPC}from'./config.js';
-import{genGarrison,armyPower,armyCount,battle}from'./combat.js';
+import{EXTRA_NAMES,NPC,NPC_LOOT_EXP}from'./config.js';
+import{genGarrison,armyPower,armyCount,battle,marginFactor,carryLimit}from'./combat.js';
 import{npcKillsInit}from'./leaderboard.js';
 import{findPath}from'./js/pathfinding.js';
 
@@ -13,11 +13,11 @@ export function newId(S){S.nextId=(S.nextId||1000)+1;return 't'+S.nextId;}
 
 // ساخت یک قلعه NPC (هم برای جهان اول، هم جایگزین‌ها)
 export function buildTribe(id,name,x,y,level,rng,buff=1){
-  const garrison=genGarrison(level,rng);
+  const garrison=genGarrison(level,rng),LV=Math.pow(level,NPC_LOOT_EXP);
   const t={id,name,faction:null,factionName:'',color:'#b08a5a',x,y,level,wall:Math.floor(level/4),garrison,
     power:Math.floor(armyPower(garrison)),kills:0,
-    loot:{food:Math.floor(3000*level*(0.8+rng()*0.5)),wood:Math.floor(2500*level*(0.8+rng()*0.5)),
-      stone:Math.floor(2000*level*(0.8+rng()*0.5)),iron:Math.floor(1200*level*(0.8+rng()*0.5)),gold:Math.floor(35*level*(0.8+rng()*0.6))}};
+    loot:{food:Math.floor(3000*LV*(0.8+rng()*0.5)),wood:Math.floor(2500*LV*(0.8+rng()*0.5)),
+      stone:Math.floor(2000*LV*(0.8+rng()*0.5)),iron:Math.floor(1200*LV*(0.8+rng()*0.5)),gold:Math.floor(35*LV*(0.8+rng()*0.6))}};
   t.kills=npcKillsInit(garrison,rng);
   t.spies=Math.floor(level*6*(0.6+rng()*0.8));
   if(buff!==1)scaleTribe(t,buff);
@@ -98,7 +98,12 @@ export function resolveRaid(S,raid,rng){
   const t=S.tribes.find(x=>x.id===raid.from),out={r,attackerWon:r.win,myLosses:{},loot:{},kills:0,tribe:t};
   if(r.win){
     out.myLosses=lossFrac(S.troops,Math.min(0.7,0.3+0.4*(1-r.def/Math.max(1,r.atk))));
-    for(const k in S.resources){const st=Math.floor(S.resources[k]*(0.08+rng()*0.14));S.resources[k]-=st;out.loot[k]=st;}
+    // غارت: به اختلاف قدرت و ظرفیت حمل بازماندگان وابسته است (برد با اختلاف کم = غارت کم)
+    const frac=(0.04+0.18*marginFactor(r.atk/Math.max(1,r.def)))*(0.9+rng()*0.2);
+    const surv=armyCount(raid.army)-armyCount(r.attLosses),raw={};
+    for(const k in S.resources)raw[k]=Math.floor(S.resources[k]*frac);
+    const cl=carryLimit(raw,surv);out.carry=cl;
+    for(const k in cl.loot){S.resources[k]-=cl.loot[k];out.loot[k]=cl.loot[k];}
     if(t){t.kills=(t.kills||0)+armyCount(out.myLosses);scaleTribe(t,Math.max(0.5,1-r.aLoss*0.5));}
   }else{
     out.myLosses=r.defLosses;out.kills=Math.floor(armyCount(raid.army)*r.aLoss);

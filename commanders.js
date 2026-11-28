@@ -47,7 +47,7 @@ export function battleMods(fx,extra={}){
   const cls={};for(const k in fx.cls||{})cls[k]=1+fx.cls[k];
   return{atk:(1+(fx.atk||0))*(1+(extra.atk||0)),cls,wallIgnore:Math.min(0.9,(fx.wall||0)+(extra.wall||0)),lossMul:1-(fx.loss||0)+(fx.lossUp||0)};}
 export const energyCost=(S,cmdId)=>Math.max(2,ENERGY.move-((cmdFx(S,cmdId).energy)||0));
-export const armyCap=(S,base,cmdId)=>Math.floor(base*(1+(cmdFx(S,cmdId).cap||0)));
+export const armyCap=(S,base,cmdId)=>Math.min(70000,Math.floor(base*(1+(cmdFx(S,cmdId).cap||0))));
 // متن اثرها برای نمایش
 export function fxChips(f,lvl=1){const k=scaleOf(lvl),p=v=>'+'+Math.round(v*k*100)+'٪',a=[];
   if(f.atk)a.push('⚔ '+p(f.atk)+' قدرت حمله');

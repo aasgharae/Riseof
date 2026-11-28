@@ -1,6 +1,6 @@
 import{TROOPS,BUILD_DEFS,BATCH_OPTIONS,EXTRA_NAMES,FACTIONS,MAX_LEVEL,CLASS_INFO,TROOP_CLASS,COUNTER,NPC,hospitalCap,buildingProd,upgradeCost,upgradeTime,speedCost,expeditionCap,maxMarches,marchSpeed,factionAt,tribeLevelAt,WORLD_W,WORLD_H,CASTLE_COUNT}from'./config.js';
 import{SAVE_KEY,freshState,load,save,storageCap,addLog}from'./state.js';
-import{armyPower,armyCount,battle,genGarrison,troopMultVs,bestCounters}from'./combat.js';
+import{armyPower,armyCount,battle,genGarrison,troopMultVs,bestCounters,marginFactor,carryLimit}from'./combat.js';
 import{hospitalLevel,woundedCount,healingCount,addWounded,healCost,healTime}from'./hospital.js';
 import{buildTribe,scaleTribe,queueRespawn,processRespawns,npcGrow,startWar,resolveWar,maybeRaid,resolveRaid}from'./npc.js';
 import{genSites,siteReady,lootSite,SITE_KINDS}from'./sites.js';
@@ -274,19 +274,23 @@ function resolveMarch(m){
     ours:{sent,lost:r.attLosses,wounded:hurt.wounded,dead:hurt.dead,survivors},
     enemy:{army:garSnap,lost:r.defLosses,kills:r.win?gcount:Math.floor(gcount*r.dLoss)},...extra});
   if(r.win){
-    const lm=1+(fx.loot||0),loot={};for(const k in tr.loot){loot[k]=Math.floor(tr.loot[k]*lm);S.resources[k]=(S.resources[k]||0)+loot[k];}
+    const lm=1+(fx.loot||0),share=0.35+0.65*marginFactor(r.atk/Math.max(1,r.def)),want={};
+    for(const k in tr.loot)want[k]=Math.floor(tr.loot[k]*lm*share);
+    const cl=carryLimit(want,armyCount(survivors),fx.loot||0),loot=cl.loot;
+    for(const k in loot)S.resources[k]=(S.resources[k]||0)+loot[k];
+    const lootNotes=['🎒 سهم غنیمت از اختلاف قدرت: '+Math.round(share*100)+'٪'+(cl.capped?' • ظرفیت حمل بازماندگان محدودکننده بود ('+fmt(cl.want)+' → '+fmt(cl.cap)+')':'')];
     S.kills=(S.kills||0)+gcount;bump(S,'won');
     if(site){
       const lucky=(tr.item||Math.random()<(fx.item||0))&&S.season.itemPool>0;
       if(lucky){S.season.itemPool--;S.cmd.emblems++;}
       lootSite(tr,now,Math.random);bump(S,'sites');
-      addLog(S,'win','💎 '+tr.name+' غارت شد — '+fmt(loot.gold||0)+'🪙 '+fmt(loot.iron||0)+'⛓️ '+fmt(loot.stone||0)+'🪨'+(lucky?' • 🎖 نشان ارتقای فرمانده پیدا شد!':'')+lostTxt+mulNote(r.atkMul)+tag,det({loot,emblem:!!lucky}));
+      addLog(S,'win','💎 '+tr.name+' غارت شد — '+fmt(loot.gold||0)+'🪙 '+fmt(loot.iron||0)+'⛓️ '+fmt(loot.stone||0)+'🪨'+(lucky?' • 🎖 نشان ارتقای فرمانده پیدا شد!':'')+lostTxt+mulNote(r.atkMul)+tag,det({loot,emblem:!!lucky,notes:lootNotes}));
       toast(lucky?'🎖 <b>نشان ارتقای فرمانده</b> از '+tr.name+' پیدا کردی!':'💎 <b>'+tr.name+'</b> غارت شد! +'+fmt(loot.gold||0)+'🪙');
     }else{
       S.tribes=S.tribes.filter(t=>t.id!==tr.id);S.conquered++;
       S.factionKills=S.factionKills||{};S.factionKills[tr.faction]=(S.factionKills[tr.faction]||0)+1;
       queueRespawn(S,tr,now,Math.random);
-      addLog(S,'win','🏰 پیروزی! '+tr.name+' (Lv'+tr.level+') فتح شد — ☠'+fmt(gcount)+' دشمن'+lostTxt+' — غنیمت: '+fmt(loot.gold||0)+'🪙 '+fmt(loot.food||0)+'🌾'+mulNote(r.atkMul)+tag,det({loot}));
+      addLog(S,'win','🏰 پیروزی! '+tr.name+' (Lv'+tr.level+') فتح شد — ☠'+fmt(gcount)+' دشمن'+lostTxt+' — غنیمت: '+fmt(loot.gold||0)+'🪙 '+fmt(loot.food||0)+'🌾'+mulNote(r.atkMul)+tag,det({loot,notes:lootNotes}));
       toast('🏰 <b>پیروزی!</b> '+tr.name+' فتح شد — غنیمت: +'+fmt(loot.gold||0)+'🪙');}
   }else{
     S.kills=(S.kills||0)+Math.floor(gcount*r.dLoss);
@@ -308,7 +312,7 @@ function handleRaid(raid){
   const lostTxt=armyCount(o.myLosses)?' — 🩹'+fmt(hurt.wounded)+' مجروح • ☠'+fmt(hurt.dead)+' کشته':'';
   if(o.attackerWon){
     const lootTxt=Object.keys(o.loot).filter(k=>o.loot[k]>0).map(k=>fmt(o.loot[k])+ICO[k]).join(' ');
-    addLog(S,'lose','🔥 '+raid.name+' قلعه‌ات را غارت کرد'+lostTxt+' — غارت‌شده: '+lootTxt,rdet({loot:o.loot}));
+    addLog(S,'lose','🔥 '+raid.name+' قلعه‌ات را غارت کرد'+lostTxt+' — غارت‌شده: '+lootTxt,rdet({loot:o.loot,notes:o.carry&&o.carry.capped?['🎒 غارت‌گر بیشتر می‌خواست ببرد ولی ظرفیت حمل لشکرش محدود بود ('+fmt(o.carry.want)+' → '+fmt(o.carry.cap)+')']:[]}));
     toast('🔥 <b>'+raid.name+'</b> قلعه‌ات را غارت کرد! سرباز و دیوار بیشتری لازم داری');
   }else{
     bump(S,'defended');
