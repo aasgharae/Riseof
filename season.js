@@ -50,7 +50,9 @@ export function rewardFor(rank,total){
 export function finalizeSeason(S,now=Date.now()){
   const rows=bossBoard(S,S.season.end),me=rows.find(r=>r.me);
   let res=null;
-  if(me){const rw=rewardFor(me.rank,rows.length);
+  S.stats=S.stats||{};
+  if(me){S.stats.seasonParticipations=(S.stats.seasonParticipations||0)+1;if(me.rank<=10)S.stats.seasonTop10=(S.stats.seasonTop10||0)+1;if(me.rank===1)S.stats.seasonWins=(S.stats.seasonWins||0)+1;
+    const rw=rewardFor(me.rank,rows.length);
     S.resources.gold=(S.resources.gold||0)+rw.gold;for(const k of['food','wood','stone','iron'])S.resources[k]=(S.resources[k]||0)+rw.res;
     S.cmd.emblems=(S.cmd.emblems||0)+rw.emblems;
     let cosmetics=null;

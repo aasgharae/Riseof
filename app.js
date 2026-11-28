@@ -246,7 +246,7 @@ function resolveBoss(m){
   const fx=cmdFx(S,m.cmd),h=bossHit(S,m.army,fx),losses={};
   for(const k in m.army){const n=Math.min(m.army[k],Math.floor(m.army[k]*h.lossFrac+0.5));if(n>0)losses[k]=n;}
   const hurt=addWounded(S,losses,fx.heal||homeFx(S,'heal'));
-  S.boss.dmg+=h.damage;S.boss.hits++;
+  S.boss.dmg+=h.damage;S.boss.hits++;bump(S,'bossDamage',h.damage);bump(S,'bossHits',1);
   const me=bossBoard(S).find(r=>r.me);
   const lostTxt=armyCount(losses)?' — 🩹'+fmt(hurt.wounded)+' مجروح • ☠'+fmt(hurt.dead)+' کشته':'';
   addLog(S,'win','🗿 ضربه به غول: '+fmt(h.damage)+' امتیاز (تقابل ×'+h.mult.toFixed(2)+')'+lostTxt+' — رتبه شما: #'+(me?me.rank:'؟'),
@@ -678,7 +678,7 @@ if(cur==='cmd'){
 if(cur==='boss'){
   const s=S.season,now=Date.now(),ph=bossPhase(S,now);
   const done=Math.min(100,Math.floor((now-s.start)/(s.end-s.start)*100));
-  let h='<div class="card hero"><div class="bhead">🏁 <b>فصل '+s.id+'</b><span class="lvl">'+done+'٪</span></div><div class="bar"><i style="width:'+done+'%"></i></div>'
+  let h='<div class="card hero"><div class="bhead">🏁 <b>فصل '+s.id+' • فصل ۴۵ روزه</b><span class="lvl">'+done+'٪</span></div><div class="bar"><i style="width:'+done+'%"></i></div>'
     +'<div class="q">⏳ پایان فصل: '+fmtDur(s.end-now)+'</div></div>';
   if(ph==='before'){
     h+='<div class="card"><b>🗿 غول آخر فصل</b><div class="q">در <b>'+fmtDur(s.bossStart-now)+'</b> دیگر در مرکز نقشه ظاهر می‌شود و ۴۸ ساعت می‌ماند.</div>'
@@ -773,7 +773,7 @@ function renderProfile(){
   const p=self?playerById(S,'me'):(profileTargetId?playerById(S,profileTargetId):null);
   const prof=self?(S.profile||(S.profile={})):((p&&p.profile)||{});
   const name=self?(prof.name||p?.name||'فرمانروا'):(prof.name||p?.name||t?.name||'فرمانروای ناشناس');
-  const avatarItem=avatarById(prof.avatarId||DEFAULT_AVATAR_ID),avatar=avatarItem.emoji,flag=prof.flag||'🏰',title=prof.title||'فرمانروای قلمرو';
+  const avatarItem=avatarById(prof.avatarId||DEFAULT_AVATAR_ID),avatar=avatarItem.emoji,avatarMarkup=avatarItem.image?'<img src="'+avatarItem.image+'" alt="آواتار فرمانروا">':safeHtml(avatar),flag=prof.flag||'🏰',title=prof.title||'فرمانروای قلمرو';
   const ownedHeroes=self?(prof.unlockedHeroSkins||[]):(prof.unlockedHeroSkins||[]),ownedCastles=self?(prof.unlockedCastleSkins||[]):(prof.unlockedCastleSkins||[]);
   const castleSkin=castleSkinById(prof.castleSkinId);
   const pos=t?{x:t.x,y:t.y}:S.homePos;
@@ -783,7 +783,7 @@ function renderProfile(){
   const conquered=self?(S.conquered||0):(t?.conquered||0);
   const achDone=self?Object.values(S.quests?.ach||{}).reduce((a,v)=>a+(v||0),0):0;
   const featured=self?ACH.filter(a=>(S.quests?.ach?.[a.id]||0)>=a.goals.length).slice(0,3):[];
-  let h='<div class="profile-hero"><div class="profile-avatar">'+safeHtml(avatar)+'</div><div><div class="pname">'+safeHtml(name)+'</div><div class="psub">'+safeHtml(title)+' • '+safeHtml(flag)+'</div><div class="psub">'+(self?'حساب من':'پروفایل فرمانروا')+'</div></div></div>';
+  let h='<div class="profile-hero"><div class="profile-avatar">'+avatarMarkup+'</div><div><div class="pname">'+safeHtml(name)+'</div><div class="psub">'+safeHtml(title)+' • '+safeHtml(flag)+'</div><div class="psub">'+(self?'حساب من':'پروفایل فرمانروا')+'</div></div></div>';
   h+='<div class="card castle-skin-preview '+(castleSkin?safeHtml(castleSkin.className):'')+'"><b>🏰 اسکین قلعه</b><div class="castle-skin-art">'+(castleSkin?safeHtml(castleSkin.emoji):'🏰')+'</div><div class="q">'+(castleSkin?safeHtml(castleSkin.name):'دژ پایه')+'</div></div>';
   h+='<div class="statgrid" style="margin-top:10px">'
     +'<div class="stat">🏆 رتبه قدرت<b>#'+rank+'</b></div>'
@@ -799,7 +799,7 @@ function renderProfile(){
   if(self){
     h+='<div class="card"><div class="bhead"><b>✏️ ویرایش پروفایل</b></div>'
       +'<label class="q">نام فرمانروا</label><input class="profile-input" id="profileName" maxlength="24" value="'+safeHtml(name)+'" placeholder="نام فرمانروا">'
-      +'<label class="q">شخصیت پروفایل — فقط ۴ شخصیت پایه</label><div class="cosmetic-grid">'+BASE_AVATARS.map(a=>'<button type="button" class="cosmetic-choice '+(a.id===(prof.avatarId||DEFAULT_AVATAR_ID)?'selected':'')+'" onclick="chooseAvatar(\''+a.id+'\')"><span>'+a.emoji+'</span><small>'+a.name+'</small></button>').join('')+'</div>'
+      +'<label class="q">شخصیت پروفایل — فقط ۴ شخصیت پایه</label><div class="cosmetic-grid">'+BASE_AVATARS.map(a=>'<button type="button" class="cosmetic-choice portrait-choice '+(a.id===(prof.avatarId||DEFAULT_AVATAR_ID)?'selected':'')+'" onclick="chooseAvatar(\''+a.id+'\')"><img src="'+a.image+'" alt="'+a.name+'"><small>'+a.name+'</small></button>').join('')+'</div>'
       +'<label class="q">اسکین‌های شخصیتِ جایزه‌ای</label><div class="cosmetic-grid">'+HERO_SKINS.filter(a=>ownedHeroes.includes(a.id)).map(a=>'<button type="button" class="cosmetic-choice '+(a.id===prof.avatarId?'selected':'')+'" onclick="chooseAvatar(\''+a.id+'\')"><span>'+a.emoji+'</span><small>'+a.name+'</small></button>').join('')+(ownedHeroes.length?'':'<div class="q">هنوز اسکین ویژه‌ای دریافت نکرده‌ای. اسکین قهرمان هر فصل به نفر اول تعلق می‌گیرد.</div>')+'</div>'
       +'<label class="q">اسکین قلعه‌های جایزه‌ای</label><div class="cosmetic-grid">'+CASTLE_SKINS.filter(a=>ownedCastles.includes(a.id)).map(a=>'<button type="button" class="cosmetic-choice '+(a.id===prof.castleSkinId?'selected':'')+'" onclick="chooseCastleSkin(\''+a.id+'\')"><span>'+a.emoji+'</span><small>'+a.name+'</small></button>').join('')+(ownedCastles.length?'':'<div class="q">اسکین قلعه ویژه پس از قهرمانی فصل آزاد می‌شود.</div>')+'</div>'
       +'<label class="q">پرچم یا نشان</label><input class="profile-input" id="profileFlag" maxlength="12" value="'+safeHtml(flag)+'" placeholder="🏰">'
@@ -807,6 +807,7 @@ function renderProfile(){
       +'<label class="q">معرفی کوتاه</label><textarea class="profile-input" id="profileBio" maxlength="160" rows="3" placeholder="درباره قلمرو و سبک بازی خودت">'+safeHtml(prof.bio||'')+'</textarea>'
       +'<button class="btn wide" onclick="saveProfile()">💾 ذخیره پروفایل</button></div>';
     if(featured.length)h+='<div class="card"><b>🏅 افتخارات برجسته</b>'+featured.map(a=>'<div class="q">'+a.ic+' '+a.name+'</div>').join('')+'</div>';
+    h+='<div class="card"><div class="bhead"><b>🏁 کارنامه فصل‌ها</b><span class="lvl">۴۵ روزه</span></div><div class="statgrid"><div class="stat">🏆 قهرمانی<b>'+(S.stats?.seasonWins||0)+'</b></div><div class="stat">🌟 تاپ ۱۰<b>'+(S.stats?.seasonTop10||0)+'</b></div><div class="stat">📅 حضور<b>'+(S.stats?.seasonParticipations||0)+'</b></div></div>'+(S.pastSeasons?.length?S.pastSeasons.map(x=>'<div class="q">فصل '+x.season+' • '+(x.rank?'رتبه #'+x.rank+' از '+x.total:'بدون رتبه')+' • '+safeHtml(x.label)+'</div>').join(''):'<div class="q">هنوز فصلی به پایان نرسیده است.</div>')+'</div>';
     h+='<button class="btn wide ghost" onclick="qTab=\'ach\';openSheet(\'quests\')">🏅 مشاهده همه دستاوردها</button>';
   }else{
     h+='<div class="card"><b>📜 معرفی</b><div class="q">'+safeHtml(prof.bio||(p?'این بازیکن هنوز توضیحی برای پروفایلش ثبت نکرده.':'این قلعه متعلق به یکی از فرمانروایان NPC جهان بازی است.'))+'</div></div>';
@@ -828,7 +829,7 @@ window.saveProfile=()=>{
 function updateDrawerUser(){
   const p=S.profile||{},n=$('drawerName'),a=$('drawerAvatar');
   if(n)n.textContent=p.name||playerById(S,'me')?.name||'فرمانروا';
-  if(a)a.textContent=avatarById(p.avatarId||DEFAULT_AVATAR_ID).emoji;
+  if(a){const av=avatarById(p.avatarId||DEFAULT_AVATAR_ID);a.innerHTML=av.image?'<img src="'+av.image+'" alt="آواتار">':av.emoji;}
 }
 window.goHome=()=>{$('sheet').hidden=true;setViewUI('world');R.setView('world');R.centerOn(S.homePos.x,S.homePos.y);};
 window.setAtkSort=(k)=>{atkSort=k;renderSheet();};

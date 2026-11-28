@@ -1,9 +1,9 @@
 // شخصیت‌های پایه و اسکین‌های انحصاری فصل؛ هیچ آپلود تصویری در بازی وجود ندارد.
 export const BASE_AVATARS=[
-  {id:'base-warrior-f',name:'بانوی جنگاور',emoji:'👩‍⚔️',gender:'دختر'},
-  {id:'base-archer-f',name:'کماندار',emoji:'🏹‍♀️',gender:'دختر'},
-  {id:'base-warrior-m',name:'جنگاور',emoji:'👨‍⚔️',gender:'پسر'},
-  {id:'base-king-m',name:'فرمانروا',emoji:'🤴',gender:'پسر'}
+  {id:'base-warrior-f',name:'ملکه شیرازی',emoji:'👑',image:'assets/avatars/shirazi-queen.jpg',gender:'دختر'},
+  {id:'base-archer-f',name:'ملکه جنگجوی ایرانی',emoji:'👑',image:'assets/avatars/warrior-queen.jpg',gender:'دختر'},
+  {id:'base-warrior-m',name:'شاه زرتشتی',emoji:'👑',image:'assets/avatars/zoroastrian-king.jpg',gender:'پسر'},
+  {id:'base-king-m',name:'شاه سربدار',emoji:'👑',image:'assets/avatars/sarbadar-king.jpg',gender:'پسر'}
 ];
 export const HERO_SKINS=[
   {id:'hero-dragon',name:'اژدهاسوار',emoji:'🐉'},

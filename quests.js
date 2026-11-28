@@ -52,7 +52,10 @@ export const ACH=[
  {id:'fieldHero',key:'won',ic:'🏅',name:'قهرمان میدان',cat:'نظامی',goals:[10,50,250,1000],t:n=>n+' نبرد پیروز شو'},
  {id:'warstorm',key:'kills',ic:'🔥',name:'طوفان جنگ',cat:'نظامی',goals:[5000,50000,500000,5000000],t:n=>n+' دشمن را شکست بده'},
  {id:'expansionist',key:'conquered',ic:'🏴',name:'گسترش‌طلب',cat:'قلمرو',goals:[5,25,100,500],t:n=>n+' قلعه فتح کن'},
- {id:'legendpower',key:'power',ic:'👑',name:'قدرت افسانه‌ای',cat:'نظامی',goals:[50000,250000,1000000,5000000],t:n=>'قدرت ارتش به '+n+' برسد'}];
+ {id:'legendpower',key:'power',ic:'👑',name:'قدرت افسانه‌ای',cat:'نظامی',goals:[50000,250000,1000000,5000000],t:n=>'قدرت ارتش به '+n+' برسد'},
+ {id:'seasonChampion',key:'seasonWins',ic:'🏆',name:'قهرمان فصل',cat:'فصلی',goals:[1,2,3,5],t:n=>'قهرمان '+n+' فصل ۴۵ روزه شو'},
+ {id:'seasonElite',key:'seasonTop10',ic:'🌟',name:'نخبه فصل‌ها',cat:'فصلی',goals:[1,3,5,10],t:n=>'در '+n+' فصل بین ۱۰ نفر برتر باش'},
+ {id:'seasonVeteran',key:'seasonParticipations',ic:'📅',name:'فرمانروای پایدار',cat:'فصلی',goals:[1,3,6,12],t:n=>'در '+n+' فصل شرکت کن'}];
 const ACH_GOLD=[60,180,450,1100,2600];
 
 export function getStat(S,key){
@@ -69,8 +72,8 @@ export function getStat(S,key){
   if(key==='buildingsLevel')return (S.buildings||[]).reduce((a,b)=>a+(b.level||0),0);
   if(key==='commanderCount')return S.cmd?.unlocked?.length||0;
   if(key==='campCount')return S.camps?.length||0;
-  if(key==='bossDamage')return S.boss?.dmg||0;
-  if(key==='bossHits')return S.boss?.hits||0;
+  if(key==='bossDamage')return S.stats?.bossDamage||0;
+  if(key==='bossHits')return S.stats?.bossHits||0;
   if(key==='spyCount')return S.troops?.spy||0;
   if(key==='clanJoined')return S.myClan?1:0;
   return(S.stats&&S.stats[key])||0;}

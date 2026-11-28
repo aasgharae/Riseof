@@ -164,7 +164,7 @@ textarea.sinput{resize:vertical;line-height:1.8}
 
 /* RISE v11 — پروفایل و منوی متناسب با نقشه */
 .profile-hero{display:flex;align-items:center;gap:13px;padding:16px;background:linear-gradient(135deg,#293c52,#192431);border:1px solid rgba(255,201,77,.4);border-radius:17px}
-.profile-avatar{width:66px;height:66px;flex:0 0 66px;border-radius:18px;display:grid;place-items:center;background:#101923;border:1px solid var(--gold);font-size:37px}
+.profile-avatar{width:76px;height:76px;flex:0 0 76px;border-radius:16px;overflow:hidden;display:grid;place-items:center;background:#101923;border:1px solid var(--gold);font-size:37px}.profile-avatar img{width:100%;height:100%;object-fit:cover}
 .profile-hero .pname{font-size:18px;font-weight:900;color:var(--gold)}
 .profile-hero .psub{font-size:11px;color:var(--dim);margin-top:4px}
 .achievement-card{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:10px;margin:7px 0}
@@ -179,7 +179,7 @@ textarea.sinput{resize:vertical;line-height:1.8}
 /* انتخاب شخصیت و اسکین‌های فصلی؛ فاقد قابلیت آپلود تصویر */
 .cosmetic-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:8px 0 14px}
 .cosmetic-choice{min-width:0;padding:9px 4px;border:1px solid var(--line);border-radius:12px;background:#152331;color:var(--text);display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer}
-.cosmetic-choice span{font-size:27px}.cosmetic-choice small{font-size:10px;text-align:center}.cosmetic-choice.selected{border:2px solid var(--gold);background:#3b321d}
+.cosmetic-choice span{font-size:27px}.cosmetic-choice small{font-size:10px;text-align:center}.cosmetic-choice.selected{border:2px solid var(--gold);background:#3b321d}.portrait-choice{padding:5px}.portrait-choice img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:8px;border:1px solid #806b3b}.drawer-user #drawerAvatar,.drawer-user>span:first-child{width:44px;height:44px;display:grid;place-items:center;overflow:hidden;border-radius:10px}.drawer-user #drawerAvatar img{width:100%;height:100%;object-fit:cover;border-radius:9px}
 .castle-skin-preview{display:flex;align-items:center;gap:12px;margin-top:10px}.castle-skin-art{font-size:35px;padding:8px 13px;border-radius:12px;background:rgba(255,255,255,.06)}
 .castle-skin-dragon{border-color:#a64b37}.castle-skin-phoenix{border-color:#d77b32}.castle-skin-shadow{border-color:#777}.castle-skin-ice{border-color:#79cde8}.castle-skin-gold{border-color:#d6ad43}.castle-skin-lion{border-color:#b88a43}.castle-skin-storm{border-color:#7d85d8}.castle-skin-royal{border-color:#b37bd8}
 @media(max-width:420px){.cosmetic-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
