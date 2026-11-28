@@ -51,6 +51,7 @@ test('hideout protects a separate amount of every resource',()=>{
   assert.equal(out.attackerWon,true);
   assert.equal(out.protectedEach,100000);
   for(const k of Object.keys(before)){
+    if(k==='gold'){assert.equal(S.resources[k],before[k]);assert.equal(out.loot[k],undefined);continue;}
     assert.ok(S.resources[k]>=100000);
     assert.equal(S.resources[k],before[k]-out.loot[k]);
   }
