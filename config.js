@@ -69,7 +69,8 @@ goldmine:{name:'معدن طلا',icon:'🪙',max:30,baseTime:45},
 barracks:{name:'سربازخانه',icon:'⚔️',max:30,baseTime:50},
 muster:{name:'لشکر',icon:'🚩',max:30,baseTime:60},
 wall:{name:'دیوار',icon:'🧱',max:30,baseTime:45},
-hospital:{name:'بیمارستان',icon:'🏥',max:30,baseTime:50}};
+hospital:{name:'بیمارستان',icon:'🏥',max:30,baseTime:50},
+hideout:{name:'مخفیگاه',icon:'🕳️',max:30,baseTime:55}};
 
 // ---- بیمارستان: ظرفیت مجروح، هزینه و زمان درمان ----
 export const WOUNDED_RATIO=0.55;   // سهم مجروح از تلفات (بقیه کشته)
@@ -90,7 +91,10 @@ export function upgradeCost(t,l){const m=Math.pow(1.55,l);
   return{food:Math.floor(100*m),wood:Math.floor(90*m),stone:Math.floor(60*m),iron:Math.floor(20*m)};}
 
 // each upgrade takes 18% longer than the previous one
-export function upgradeTime(t,l){const d=BUILD_DEFS[t];return Math.ceil(d.baseTime*Math.pow(1.18,l));}
+export function upgradeTime(t,l){const d=BUILD_DEFS[t];return Math.ceil(d.baseTime*Math.pow(1.18,l)*10);}
+// ظرفیت مستقل مخفیگاه برای هر منبع؛ سطح ۳۰ = ۱٫۵۵ میلیون از هر منبع
+export function hideoutCap(level){return level<=0?0:50000+50000*Math.min(30,level);}
+export function formatDuration(sec){sec=Math.max(0,Math.ceil(sec||0));if(sec<60)return sec+'ث';const m=Math.ceil(sec/60);if(m<60)return m+'د';const h=Math.ceil(m/60);if(h<24)return h+'س';return Math.ceil(h/24)+'روز';}
 
 // ---- gold speed-up: the ONLY use of gold ----
 export function speedCost(sec){return Math.max(1,Math.ceil(sec/60*2));}
@@ -99,7 +103,7 @@ export function speedCost(sec){return Math.max(1,Math.ceil(sec/60*2));}
 export const ARMY_CAP_MAX=70000;
 export function expeditionCap(s){const m=s.buildings.find(b=>b.type==='muster')?.level||1;return Math.round(m*ARMY_CAP_MAX/30);} // سطح ۳۰ = ۷۰٬۰۰۰ سرباز
 export function maxMarches(s){const m=s.buildings.find(b=>b.type==='muster')?.level||1;return 1+Math.floor(m/3);}
-export function marchSpeed(){return 3;} // tiles per second
+export function marchSpeed(){return 0.1;} // tiles per second؛ حرکت واقعی و کندتر
 
 export const EXTRA_NAMES=['گرگ','شاهین','اژدها','پلنگ','عقاب','خرس','روباه','شیر','مار','گراز','کلاغ','ببر','کرم','سیاه‌پوش','آذرخش','بهشتی','سرداب','دریا','باد','باران','صخره','توفان','خنجر','سپر','نیزه','تاج','ستاره','ماه','خورشید','رعد'];
 
@@ -112,7 +116,7 @@ export const CARRY_PER_UNIT=40;
 export const NPC_POWER_EXP=2.3,NPC_POWER_EXP_OLD=1.75;
 // غنیمت هر قلعه/گنج ∝ سطح^NPC_LOOT_EXP (قبلاً ۱٫۰) تا با قدرت بیشتر هماهنگ باشد
 export const NPC_LOOT_EXP=1.45;
-export const NPC={buff:2.6,growCap:4.5,growStep:1.018,warEverySec:12,raidMinSec:150,raidMaxSec:330,firstRaidSec:240,raidSpeed:1.3,warSpeed:3,
+export const NPC={buff:2.6,growCap:4.5,growStep:1.018,warEverySec:12,raidMinSec:150,raidMaxSec:330,firstRaidSec:240,raidSpeed:0.05,warSpeed:0.05,
  respawnMinSec:45,respawnMaxSec:120,siteCooldownSec:480};
 
 // ---- انرژی روزانه، فصل، غول، کمپ ----

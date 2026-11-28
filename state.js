@@ -10,7 +10,7 @@ buildings:[
 {id:'iron-1',type:'ironmine',x:17,y:13,level:1},{id:'gold-1',type:'goldmine',x:13,y:4,level:1},
 {id:'bar-1',type:'barracks',x:5,y:6,level:1},{id:'bar-2',type:'barracks',x:21,y:6,level:1},
 {id:'bar-3',type:'barracks',x:13,y:12,level:1},{id:'muster-1',type:'muster',x:13,y:15,level:1},
-{id:'wall-1',type:'wall',x:12,y:7,level:1}],
+{id:'wall-1',type:'wall',x:12,y:7,level:1},{id:'hideout-1',type:'hideout',x:22,y:15,level:1}],
 upgrades:[],troops:{swordsman:0,spearman:0,archer:0,axeman:0,guard:0,cavalry:0,camel:0,knight:0,royal:0,ram:0,ballista:0,catapult:0},
 training:{'bar-1':[],'bar-2':[],'bar-3':[]},
 marches:[],tribes:[],conquered:0,kills:0,log:[],factionKills:{}};}
@@ -74,6 +74,8 @@ export function ensureDefaults(S){
   if(!Object.prototype.hasOwnProperty.call(S,'shield'))S.shield=null;
   if(!S.cmd)S.cmd={tokens:1,unlocked:[],levels:{},emblems:0,granted:[]};
   if(!S.buildings.some(b=>b&&b.type==='hospital'))S.buildings.push({id:'hosp-1',type:'hospital',x:22,y:13,level:1});
+  if(!S.buildings.some(b=>b&&b.type==='hideout'))S.buildings.push({id:'hideout-1',type:'hideout',x:22,y:15,level:1});
+  if(!Number.isFinite(S.lastTickAt))S.lastTickAt=Date.now();
   migrateNpcPower(S);
   return S;
 }

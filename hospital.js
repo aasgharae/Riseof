@@ -12,4 +12,4 @@ export function addWounded(S,losses,ratioBonus=0){
     if(w>0)S.wounded[k]=(S.wounded[k]||0)+w;wounded+=w;dead+=n-w;}
   return{wounded,dead};}
 export function healCost(tid,n,disc=0){const T=TROOPS[tid],c={};for(const k in T.cost)c[k]=Math.ceil(T.cost[k]*HEAL_COST_RATIO*n*(1-Math.min(0.6,disc)));return c;}
-export function healTime(tid,n,lvl){return Math.max(1,Math.ceil(TROOPS[tid].time*HEAL_TIME_RATIO*Math.pow(n,0.7)/(1+lvl*0.22)));}
+export function healTime(tid,n,lvl){return Math.max(1,Math.ceil(TROOPS[tid].time*HEAL_TIME_RATIO*Math.pow(n,0.7)/(1+lvl*0.22)*10));}

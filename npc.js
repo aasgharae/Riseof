@@ -1,4 +1,4 @@
-import{EXTRA_NAMES,NPC,NPC_LOOT_EXP}from'./config.js';
+import{EXTRA_NAMES,NPC,NPC_LOOT_EXP,hideoutCap}from'./config.js';
 import{genGarrison,armyPower,armyCount,battle,marginFactor,carryLimit}from'./combat.js';
 import{npcKillsInit}from'./leaderboard.js';
 import{findPath}from'./js/pathfinding.js';
@@ -98,16 +98,18 @@ export function resolveRaid(S,raid,rng){
   const t=S.tribes.find(x=>x.id===raid.from),out={r,attackerWon:r.win,myLosses:{},loot:{},kills:0,tribe:t};
   if(r.win){
     out.myLosses=lossFrac(S.troops,Math.min(0.7,0.3+0.4*(1-r.def/Math.max(1,r.atk))));
-    // غارت: به اختلاف قدرت و ظرفیت حمل بازماندگان وابسته است (برد با اختلاف کم = غارت کم)
-    const frac=(0.04+0.18*marginFactor(r.atk/Math.max(1,r.def)))*(0.9+rng()*0.2);
-    const surv=armyCount(raid.army)-armyCount(r.attLosses),raw={};
-    for(const k in S.resources)raw[k]=Math.floor(S.resources[k]*frac);
-    const cl=carryLimit(raw,surv);out.carry=cl;
+    // مهاجمِ پیروز فقط مازادِ ظرفیت مخفیگاه را می‌تواند غارت کند؛
+    // ظرفیت برای هر منبع جداگانه محاسبه می‌شود و حملِ ارتش هم سقف نهایی است.
+    const hideoutLv=S.buildings.find(b=>b.type==='hideout')?.level||0;
+    const protectedEach=hideoutCap(hideoutLv),surv=armyCount(raid.army)-armyCount(r.attLosses),raw={};
+    for(const k in S.resources)raw[k]=Math.max(0,Math.floor(S.resources[k]-protectedEach));
+    const cl=carryLimit(raw,surv);out.carry=cl;out.protectedEach=protectedEach;
     for(const k in cl.loot){S.resources[k]-=cl.loot[k];out.loot[k]=cl.loot[k];}
     if(t){t.kills=(t.kills||0)+armyCount(out.myLosses);scaleTribe(t,Math.max(0.5,1-r.aLoss*0.5));}
   }else{
     out.myLosses=r.defLosses;out.kills=Math.floor(armyCount(raid.army)*r.aLoss);
-    if(t){scaleTribe(t,Math.max(0.3,1-r.aLoss*0.8));
-      for(const k in t.loot){const g=Math.floor(t.loot[k]*0.25);S.resources[k]=(S.resources[k]||0)+g;out.loot[k]=g;}}}
+    if(t){scaleTribe(t,Math.max(0.3,1-r.aLoss*0.8));}
+    // پیروزی مدافع غنیمت از مهاجم ایجاد نمی‌کند؛ منابع هر دو طرف دست‌نخورده می‌ماند.
+  }
   for(const k in out.myLosses)S.troops[k]=Math.max(0,(S.troops[k]||0)-out.myLosses[k]);
   return out;}
